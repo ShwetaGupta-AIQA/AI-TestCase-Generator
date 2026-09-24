@@ -26,6 +26,7 @@ reduce specific failure modes, but do not guarantee semantically correct output.
 
 ## Architecture
 
+![AI Test Case Generator Architecture](docs/images/architecture.png) 
 ```mermaid
 flowchart TD
     UI[Streamlit UI] --> Input[Manual requirement or document]
