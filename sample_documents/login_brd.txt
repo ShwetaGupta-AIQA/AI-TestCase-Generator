@@ -1,0 +1,16 @@
+Login Feature Requirements
+
+REQ-1:
+A registered user should be able to login using
+email and password.
+
+REQ-2:
+The password must contain between 8 and 20 characters.
+
+REQ-3:
+After successful authentication, the user should
+be redirected to the dashboard.
+
+REQ-4:
+If authentication fails, the user should remain
+on the login page.

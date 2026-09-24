@@ -1,0 +1,37 @@
+.env
+.env.*
+!.env.example
+
+# Local Python environments and caches
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.ruff_cache/
+.tox/
+
+# Test and coverage artifacts
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Local application data and generated exports
+output/
+outputs/
+TestGen_Output.xlsx
+.tmp/
+
+# Local secrets and logs
+.streamlit/secrets.toml
+*.log
+
+# Editors and operating systems
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+Desktop.ini
+.DS_Store
