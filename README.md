@@ -197,7 +197,7 @@ See [release checklist](docs/release-checklist.md) for validation and GitHub ste
 | `evaluation/`, `run_evaluation.py` | Deterministic metrics and golden examples |
 | `api/`, `ui/` | HTTP interface and Streamlit frontend |
 | `tests/` | Automated regression tests |
-| Root `test_*.py` | Runnable lesson demonstrations; some make live API calls |
+| Root `test_*.py` | Component verification and development test scripts; some make live API calls |
 | `sample_documents/` | Synthetic BRD for demonstrations |
 
 ## Limits and future work
@@ -217,7 +217,7 @@ large-document retrieval, and Jira/OpenAPI integrations.
 [Interview explanation and resume bullets](docs/portfolio.md) describe implemented
 capabilities without unmeasured accuracy or deployment claims. [Screenshot guide](docs/images/README.md)
 lists actual captures to add; no screenshots are fabricated or linked before they
-exist. [Historical lesson notes](docs/lesson-notes.md) preserve the earlier walkthrough.
+exist. 
 
 Local code and release configuration are prepared. Docker build/run, actual UI
 screenshots, live-model evaluation and GitHub publication remain release checkpoints.
