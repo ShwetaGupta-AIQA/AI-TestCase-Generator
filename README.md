@@ -215,8 +215,7 @@ large-document retrieval, and Jira/OpenAPI integrations.
 
 ## Portfolio and release status
 
-[Interview explanation and resume bullets](docs/portfolio.md) describe implemented
-capabilities without unmeasured accuracy or deployment claims. [Screenshot guide](docs/images/README.md)
+[Screenshot guide](docs/images/README.md)
 lists actual captures to add; no screenshots are fabricated or linked before they
 exist. 
 
