@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import time
 import unittest
 from unittest.mock import patch
 
@@ -104,6 +105,26 @@ class DemoTests(unittest.TestCase):
             self.assertEqual(provider.call_count, 12)
             self.assertLessEqual(provider.call_args.kwargs["timeout"], 60)
             self.assertEqual(provider.return_value.__enter__.return_value.chat.completions.create.call_args.kwargs["max_tokens"], 4000)
+
+    def test_multiple_demo_scenarios_generate_in_parallel_with_stable_ids(self):
+        scenarios = [dict(SCENARIO, scenario_id=f"SC00{i}") for i in range(1, 4)]
+        cases = [dict(CASE, scenario_id=scenario["scenario_id"], title=f"Case {index}")
+                 for index, scenario in enumerate(scenarios, 1)]
+
+        def delayed_case(*args):
+            time.sleep(0.2)
+            return json.dumps({"test_cases": [cases.pop(0)]})
+
+        with TestClient(app) as client, self.mocks(scenarios=scenarios), patch(
+                "services.test_case_generator.call_llm", side_effect=delayed_case):
+            started = time.monotonic()
+            response = client.post("/generate", json={"requirement": "Password length 8 to 20"})
+        self.assertEqual(response.status_code, 200, response.text)
+        # Two workers complete three 200 ms calls in two batches, rather than
+        # the 600 ms required by the prior sequential demo path.
+        self.assertLess(time.monotonic() - started, 0.55)
+        self.assertEqual([case["test_case_id"] for case in response.json()["results"][0]["test_cases"]],
+                         ["TC001", "TC002", "TC003"])
 
     def test_oversize_response_rejected(self):
         with limits.demo_budget(), self.assertRaises(limits.DemoLimitError):

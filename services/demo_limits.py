@@ -1,7 +1,8 @@
 """Request-scoped demo limits; durable workflows have no demo policy."""
 from contextlib import contextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from threading import Lock
 import time
 
 MAX_UPLOAD_BYTES = 4_000_000
@@ -25,6 +26,7 @@ class DemoTimeoutError(TimeoutError):
 class Budget:
     deadline: float
     calls: int = 0
+    lock: Lock = field(default_factory=Lock)
 
 
 _budget = ContextVar("demo_budget", default=None)
@@ -48,9 +50,10 @@ def before_call():
     remaining()
     budget = _budget.get()
     if budget is not None:
-        if budget.calls >= 12:
-            raise DemoLimitError("Demo model-call limit reached. Try a simpler requirement.")
-        budget.calls += 1
+        with budget.lock:
+            if budget.calls >= 12:
+                raise DemoLimitError("Demo model-call limit reached. Try a simpler requirement.")
+            budget.calls += 1
 
 
 @contextmanager

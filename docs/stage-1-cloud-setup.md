@@ -14,6 +14,12 @@ and OpenAPI listed only `/`, `/health`, `/generate`, and `/generate-document`.
 This verifies availability and the intended stateless route surface, not a public
 generation request or model-quality measurement.
 
+After a public multi-rule request timed out, the demo pipeline was updated to run
+independent scenario test-case calls in batches of two. This preserves the ordered
+deterministic QA pipeline while reducing the slowest generation stage's wall-clock
+time. The full 75-test local suite passed afterward; cloud verification follows
+the Vercel redeploy.
+
 ## Vercel API
 
 - Repository root: `.`. Framework: FastAPI.

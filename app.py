@@ -1,5 +1,7 @@
 """Interactive and command-line test generation."""
 import argparse
+import contextvars
+from concurrent.futures import ThreadPoolExecutor
 import json
 from pathlib import Path
 import sys
@@ -15,6 +17,7 @@ from services.requirement_extractor import extract_requirements
 from services.requirement_analyzer import analyze_requirement
 from services.scenario_generator import generate_scenarios
 from services.test_case_generator import generate_test_cases
+from services import demo_limits
 
 
 def run_pipeline(requirement, id_generator=None):
@@ -45,10 +48,23 @@ def run_pipeline(requirement, id_generator=None):
         scenario.scenario_id = id_generator.next_scenario_id()
         scenario.requirement_id = analysis.requirement_id
     print("[3/3] Generating detailed test cases...", file=sys.stderr)
+    if demo_limits.active() and len(scenarios.scenarios) > 1:
+        # Each scenario's model request is independent. Bounded parallelism makes
+        # the public request-based demo fit its platform deadline while results
+        # remain processed in scenario order below for stable IDs and QA output.
+        with ThreadPoolExecutor(max_workers=min(2, len(scenarios.scenarios))) as executor:
+            futures = []
+            for scenario in scenarios.scenarios:
+                context = contextvars.copy_context()
+                futures.append(executor.submit(context.run, generate_test_cases, analysis, scenario))
+            generated_responses = [future.result() for future in futures]
+    else:
+        generated_responses = [generate_test_cases(analysis, scenario)
+                               for scenario in scenarios.scenarios]
+
     cases = []
     reports = []
-    for scenario in scenarios.scenarios:
-        response = generate_test_cases(analysis, scenario)
+    for scenario, response in zip(scenarios.scenarios, generated_responses):
         for case in response.test_cases:
             case.test_case_id = id_generator.next_test_case_id()
             case.requirement_id = analysis.requirement_id

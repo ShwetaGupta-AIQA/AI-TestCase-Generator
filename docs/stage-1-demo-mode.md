@@ -62,6 +62,7 @@ client may leave an in-flight provider request running.
 | Scenarios per requirement | Three |
 | Cases per scenario | Three |
 | Provider requests per generation | Twelve, including JSON-format retries |
+| Concurrent test-case requests | Two scenario requests at a time |
 | Completion tokens per provider request | 4,000 |
 | Encoded response, including workbook | 4,000,000 bytes |
 | Generation time budget | 240 seconds, checked cooperatively |
@@ -71,6 +72,9 @@ client may leave an in-flight provider request running.
 Excess scenarios/cases cause a readable error, not silent truncation. The first
 two document requirements are the existing intentional processing subset.
 Limits apply through request-local context and do not restrict durable workflows.
+For the public demo, independent test-case requests run in batches of two; final
+case IDs, validation, duplicate checks, and Excel rows are still processed in
+scenario order.
 
 The deadline is **cooperative**, not process cancellation: checks stop further AI
 calls and reject late results, but cannot interrupt arbitrary PDF parsing or an
