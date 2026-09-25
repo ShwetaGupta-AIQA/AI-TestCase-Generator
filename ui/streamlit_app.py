@@ -15,7 +15,8 @@ from services.generation_errors import generation_error_message
 from openai import APIError
 from services.provider_errors import provider_error_message
 from ui.api_client import (BackendUnavailable, download_excel, get_history, get_run,
-                           submit_document, submit_manual)
+                           submit_document, submit_manual, demo_mode, generate_demo)
+from services.demo_limits import MAX_UPLOAD_BYTES, MAX_TEXT_CHARS
 from evaluation.evaluator import evaluate_test_suite
 from models.test_case import TestCase
 from models.test_scenario import TestScenario
@@ -117,11 +118,49 @@ def show_saved_run(run_id):
         st.error(str(exc))
 
 
+def demo_page():
+    st.caption("Public demo: session-only results. Refreshing or restarting may clear your results. Download Excel before leaving.")
+    st.caption("Up to two document requirements, three scenarios per requirement and three cases per scenario. Use sample or nonconfidential requirements; text is sent to the AI provider.")
+    mode = st.radio("Choose input method", ["Enter Requirement", "Upload Document"], horizontal=True)
+    filename, content, text = None, None, ""
+    if mode == "Enter Requirement":
+        if st.button("Load Sample Requirement"):
+            st.session_state["demo_requirement"] = "The password must contain between 8 and 20 characters. Reject passwords outside this range."
+        text = st.text_area("Enter User Story / Requirement", key="demo_requirement",
+                            height=150, max_chars=MAX_TEXT_CHARS)
+        ready = 5 <= len(text.strip()) <= MAX_TEXT_CHARS
+        fingerprint = (mode, text)
+    else:
+        uploaded = st.file_uploader("Upload TXT, DOCX or text-based PDF (up to 4 MB)", type=["txt", "docx", "pdf"])
+        if uploaded is not None:
+            filename, content = uploaded.name, uploaded.getvalue()
+        ready = content is not None and 0 < len(content) <= MAX_UPLOAD_BYTES
+        if uploaded is not None and not ready:
+            st.error("Choose a nonempty document no larger than 4 MB.")
+        fingerprint = (mode, filename, hashlib.sha256(content or b"").hexdigest())
+    if st.session_state.get("demo_input") != fingerprint:
+        st.session_state.pop("demo_result", None)
+        st.session_state["demo_input"] = fingerprint
+    if st.button("Analyze & Generate Test Cases", type="primary", disabled=not ready):
+        st.session_state.pop("demo_result", None)
+        try:
+            with st.spinner("Generating and validating tests. Keep this page open; this can take several minutes."):
+                st.session_state["demo_result"] = generate_demo(
+                    requirement=text.strip(), filename=filename, content=content)
+        except (BackendUnavailable, ValueError) as exc:
+            st.error(generation_error_message(exc))
+    if st.session_state.get("demo_result"):
+        show_results(st.session_state["demo_result"])
+
+
 def main():
     st.set_page_config(page_title="TestGen AI", page_icon="🧪", layout="wide")
     st.title("🧪 TestGen AI")
     st.subheader("AI-Powered Test Case Generator")
     st.write("Turn a requirement or document into QA scenarios, test cases and a traceable Excel workbook.")
+    if demo_mode():
+        demo_page()
+        return
     with st.sidebar:
         st.header("About TestGen AI")
         st.write("Analyze requirements → Generate scenarios → Generate test cases → Validate → Export Excel")

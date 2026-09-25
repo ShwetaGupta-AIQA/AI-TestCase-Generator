@@ -1,6 +1,7 @@
 """Local text extraction. Scanned PDFs require OCR, which is not included."""
 from pathlib import Path
-from zipfile import BadZipFile
+from zipfile import BadZipFile, ZipFile
+from services import demo_limits
 
 from docx import Document
 from docx.opc.exceptions import PackageNotFoundError
@@ -13,6 +14,10 @@ def read_txt(file_path):
 
 
 def read_docx(file_path):
+    if demo_limits.active():
+        with ZipFile(file_path) as archive:
+            if sum(item.file_size for item in archive.infolist()) > 20_000_000:
+                raise demo_limits.DemoLimitError("Expanded DOCX exceeds the demo limit of 20 MB.")
     document = Document(file_path)
     parts = []
     # Include tables: BRDs often store their requirements in cells.
@@ -30,6 +35,8 @@ def read_pdf(file_path):
         reader = PdfReader(source)
         if reader.is_encrypted and not reader.decrypt(""):
             raise ValueError("Password-protected PDFs are not supported.")
+        if demo_limits.active() and len(reader.pages) > 20:
+            raise demo_limits.DemoLimitError("Demo PDFs must contain at most 20 pages.")
         return "\n".join(page.extract_text() or "" for page in reader.pages)
 
 
@@ -47,4 +54,7 @@ def read_document(file_path):
         raise ValueError(f"Cannot read {path.name}: invalid or unsupported document content.") from exc
     if not text.strip():
         raise ValueError("Document contains no extractable text. Scanned PDFs need OCR (not supported).")
+    if demo_limits.active() and len(text) > demo_limits.MAX_DOCUMENT_CHARS:
+        raise demo_limits.DemoLimitError("Document text exceeds the demo limit of 30,000 characters.")
+    demo_limits.remaining()
     return text

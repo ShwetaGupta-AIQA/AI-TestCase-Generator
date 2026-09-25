@@ -1,4 +1,5 @@
 import os
+import base64
 from pathlib import Path
 
 import httpx
@@ -13,9 +14,9 @@ class BackendUnavailable(RuntimeError):
     pass
 
 
-def _request(method, path, **kwargs):
+def _request(method, path, timeout=TIMEOUT, **kwargs):
     try:
-        response = httpx.request(method, API_URL + path, timeout=TIMEOUT, **kwargs)
+        response = httpx.request(method, API_URL + path, timeout=timeout, **kwargs)
         response.raise_for_status()
         return response
     except httpx.HTTPStatusError as exc:
@@ -25,8 +26,27 @@ def _request(method, path, **kwargs):
         except ValueError:
             pass
         raise ValueError(detail) from exc
+    except httpx.TimeoutException as exc:
+        raise BackendUnavailable("The API request timed out. Try a shorter requirement; the request is not automatically retried.") from exc
     except httpx.RequestError as exc:
-        raise BackendUnavailable("The TestGen API is unavailable. Start the API and worker, then retry.") from exc
+        raise BackendUnavailable("The TestGen API is unavailable. Check the configured API URL and retry.") from exc
+
+
+def demo_mode():
+    return os.getenv("TESTGEN_MODE", "durable").lower() == "demo"
+
+
+def generate_demo(requirement=None, filename=None, content=None):
+    kwargs = ({"files": {"file": (filename, content)}} if filename is not None
+              else {"json": {"requirement": requirement}})
+    route = "/generate-document" if filename is not None else "/generate"
+    response = _request("POST", route, timeout=httpx.Timeout(260.0, connect=10.0), **kwargs)
+    try:
+        report = response.json()
+        report["excel_data"] = base64.b64decode(report.pop("excel_base64"), validate=True)
+        return report
+    except (ValueError, KeyError, TypeError) as exc:
+        raise ValueError("The API returned an invalid demo report.") from exc
 
 
 def submit_manual(requirement, idempotency_key):

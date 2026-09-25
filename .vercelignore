@@ -1,0 +1,28 @@
+.git/
+.vercel/
+.github/
+.venv/
+venv/
+.tmp/
+.env
+.env.*
+.streamlit/
+**/__pycache__/
+*.pyc
+*.log
+output/
+outputs/
+TestGen_Output.xlsx
+tests/
+test_*.py
+docs/
+runs/
+api/main.py
+ui/streamlit_app.py
+ui/api_client.py
+# Vercel installs API dependencies from pyproject.toml.
+# Keep the full environment for local development and Streamlit Community Cloud.
+requirements.txt
+requirements.in
+Dockerfile
+docker-compose.yml

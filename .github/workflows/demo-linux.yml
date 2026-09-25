@@ -1,0 +1,30 @@
+name: Demo API Linux compatibility
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main, stage-1-linux-check]
+
+permissions:
+  contents: read
+
+jobs:
+  demo-api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Install only the API manifest dependencies
+        run: |
+          python - <<'PY'
+          import pathlib, subprocess, sys, tomllib
+          manifest = tomllib.loads(pathlib.Path('pyproject.toml').read_text())
+          subprocess.check_call([sys.executable, '-m', 'pip', 'install', *manifest['project']['dependencies']])
+          PY
+      - run: python -m pip check
+      - name: Check API and actual Excel export with mocked generation
+        run: python scripts/check_demo_deployment.py

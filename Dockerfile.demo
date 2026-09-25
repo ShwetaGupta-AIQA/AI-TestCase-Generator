@@ -1,0 +1,23 @@
+FROM python:3.14-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+WORKDIR /app
+COPY pyproject.toml ./
+RUN python -c "import subprocess,sys,tomllib; p=tomllib.load(open('pyproject.toml','rb')); subprocess.check_call([sys.executable,'-m','pip','install','--no-cache-dir',*p['project']['dependencies']])" \
+    && python -m pip check \
+    && useradd --create-home --uid 10001 appuser
+COPY app.py document_pipeline.py ./
+COPY api/__init__.py api/demo.py ./api/
+COPY ui/__init__.py ui/workflow.py ./ui/
+COPY services/ ./services/
+COPY models/ ./models/
+COPY prompts/ ./prompts/
+COPY qa_engine/ ./qa_engine/
+COPY utils/ ./utils/
+COPY evaluation/ ./evaluation/
+COPY scripts/check_demo_deployment.py ./scripts/
+USER appuser
+EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"
+CMD ["python", "-m", "uvicorn", "api.demo:app", "--host", "0.0.0.0", "--port", "8000"]

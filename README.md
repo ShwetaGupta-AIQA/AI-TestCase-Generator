@@ -48,7 +48,11 @@ flowchart TD
     BVA --> Results
 ```
 
-The UI calls Python services directly; FastAPI does not need to run for Streamlit.
+The default UI submits jobs to FastAPI and polls a separate durable worker's results.
+An optional stateless demo UI calls `api.demo:app` for request-based generation
+without a database or worker. See [demo setup and limits](docs/stage-1-demo-mode.md).
+Vercel configuration and the remaining cloud checks are documented in
+[Stage 1 cloud setup](docs/stage-1-cloud-setup.md).
 File upload through FastAPI extracts requirements only. It does not automatically
 run generation or export. Model responses at each AI stage are Pydantic-validated.
 
