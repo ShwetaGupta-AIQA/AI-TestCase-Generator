@@ -14,7 +14,8 @@ output/
 outputs/
 TestGen_Output.xlsx
 tests/
-test_*.py
+# Anchor to the root: nested test_case*.py files are application modules.
+/test_*.py
 docs/
 runs/
 api/main.py

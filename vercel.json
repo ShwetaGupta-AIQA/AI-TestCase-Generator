@@ -4,7 +4,7 @@
   "functions": {
     "api/demo.py": {
       "maxDuration": 300,
-      "excludeFiles": "{.venv/**,.tmp/**,.git/**,.github/**,tests/**,test_*.py,docs/**,output/**,outputs/**,runs/**,.env,.env.*,**/secrets.toml,**/__pycache__/**}"
+      "excludeFiles": "{.venv/**,.tmp/**,.git/**,.github/**,tests/**,docs/**,output/**,outputs/**,runs/**,.env,.env.*,**/secrets.toml,**/__pycache__/**}"
     }
   }
 }
