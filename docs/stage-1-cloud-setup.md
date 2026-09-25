@@ -1,6 +1,18 @@
 # Stage 1 - Cloud configuration
 
-Status: local Linux build and container smoke check passed; cloud deployment unverified.
+Status: Stage 1 public deployment is live and basic endpoint checks passed.
+
+## Live endpoints
+
+- Streamlit demo: https://testgen-ai-demo.streamlit.app/
+- Vercel API health: https://ai-test-case-generator-chi.vercel.app/health
+- Vercel API documentation: https://ai-test-case-generator-chi.vercel.app/docs
+
+On 25 September 2026, the public Streamlit page returned HTTP 200. The API health
+endpoint returned `{"status":"healthy","mode":"demo"}`; the API docs returned HTTP 200,
+and OpenAPI listed only `/`, `/health`, `/generate`, and `/generate-document`.
+This verifies availability and the intended stateless route surface, not a public
+generation request or model-quality measurement.
 
 ## Vercel API
 

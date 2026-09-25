@@ -4,6 +4,13 @@ AI-assisted requirement analysis and test generation for quality engineering.
 Turn a user story or BRD into structured analysis, functional/negative/boundary
 scenarios, detailed test cases and an Excel traceability matrix.
 
+## Live demo
+
+[Open TestGen AI](https://testgen-ai-demo.streamlit.app/) · [API documentation](https://ai-test-case-generator-chi.vercel.app/docs) · [API health](https://ai-test-case-generator-chi.vercel.app/health)
+
+The public demo is session-only: use nonconfidential requirements, keep the page
+open while generation runs, and download the workbook before leaving.
+
 ## Why this project?
 
 Language models can generate plausible but incomplete, duplicated or unsupported
@@ -22,7 +29,7 @@ reduce specific failure modes, but do not guarantee semantically correct output.
 - Four-sheet Excel export: Requirements, Scenarios, Test Cases and Traceability.
 - Completeness, traceability and duplicate metrics, plus golden-dataset evaluation.
 - Streamlit UI and independent FastAPI endpoints with Swagger documentation.
-- Docker was unavailable during implementation, so build and container execution are not yet verified.
+- Linux dependency installation, container build, and the full regression suite are verified locally.
 
 ## Architecture
 
