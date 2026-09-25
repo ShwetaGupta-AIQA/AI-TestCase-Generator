@@ -1,0 +1,43 @@
+services:
+  - type: web
+    name: testgen-ai-api
+    runtime: docker
+    dockerCommand: python -m uvicorn api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: testgen-ai-db
+          property: connectionString
+      - key: TESTGEN_MODE
+        value: durable
+      - key: TESTGEN_REQUIRE_WORKSPACE
+        value: "true"
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENROUTER_MODEL
+        value: openrouter/free
+      - key: TESTGEN_WORKSPACE_SECRET
+        generateValue: true
+
+  - type: worker
+    name: testgen-ai-worker
+    runtime: docker
+    dockerCommand: python -m runs.worker
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: testgen-ai-db
+          property: connectionString
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: OPENROUTER_MODEL
+        value: openrouter/free
+      # Set this to the same generated value used by the web service in the
+      # Render dashboard. The worker itself does not verify workspace tokens.
+      - key: TESTGEN_WORKSPACE_SECRET
+        sync: false
+
+databases:
+  - name: testgen-ai-db
+    plan: free

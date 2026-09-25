@@ -3,6 +3,7 @@ import argparse
 import logging
 import os
 import time
+import tempfile
 from threading import Event, Thread
 from pathlib import Path
 
@@ -35,7 +36,16 @@ def process_one():
         directory.mkdir(parents=True, exist_ok=True)
         excel_path = directory / "TestGen_Output.xlsx"
         if run.input_type == "document":
-            report = run_document_pipeline(Path(run.source_path), excel_path)
+            # Stage 2 stores the upload in Postgres so a separately hosted
+            # worker does not need the API service's filesystem or a disk.
+            if run.source_data is not None:
+                suffix = Path(run.original_filename or "document.txt").suffix or ".txt"
+                with tempfile.TemporaryDirectory(prefix="testgen-run-") as temporary:
+                    source = Path(temporary) / f"source{suffix}"
+                    source.write_bytes(run.source_data)
+                    report = run_document_pipeline(source, excel_path)
+            else:
+                report = run_document_pipeline(Path(run.source_path), excel_path)
             report.pop("output_file", None)
         else:
             report = generate_manual_to_file(run.input_text, excel_path)

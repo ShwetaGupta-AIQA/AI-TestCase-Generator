@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 
@@ -40,3 +40,15 @@ def init_database():
             Base.metadata.create_all(connection)
     else:
         Base.metadata.create_all(engine)
+    # `create_all` does not add columns to a database created by Stage 1. Keep
+    # this tiny, idempotent compatibility migration until a migration tool is
+    # justified by a paid/production deployment.
+    columns = {column["name"] for column in inspect(engine).get_columns("generation_runs")}
+    with engine.begin() as connection:
+        if "owner_id" not in columns:
+            connection.execute(text("ALTER TABLE generation_runs ADD COLUMN owner_id VARCHAR(36) NOT NULL DEFAULT 'local'"))
+        blob_type = "BYTEA" if engine.dialect.name == "postgresql" else "BLOB"
+        if "source_data" not in columns:
+            connection.execute(text(f"ALTER TABLE generation_runs ADD COLUMN source_data {blob_type}"))
+        if "excel_data" not in columns:
+            connection.execute(text(f"ALTER TABLE generation_runs ADD COLUMN excel_data {blob_type}"))

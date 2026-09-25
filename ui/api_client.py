@@ -32,8 +32,20 @@ def _request(method, path, timeout=TIMEOUT, **kwargs):
         raise BackendUnavailable("The TestGen API is unavailable. Check the configured API URL and retry.") from exc
 
 
+def create_workspace():
+    return _request("POST", "/workspaces").json()["workspace_token"]
+
+
+def _workspace_headers(workspace_token):
+    return {"X-TestGen-Workspace": workspace_token} if workspace_token else {}
+
+
 def demo_mode():
     return os.getenv("TESTGEN_MODE", "durable").lower() == "demo"
+
+
+def workspace_required():
+    return os.getenv("TESTGEN_REQUIRE_WORKSPACE", "false").lower() == "true"
 
 
 def generate_demo(requirement=None, filename=None, content=None):
@@ -49,23 +61,26 @@ def generate_demo(requirement=None, filename=None, content=None):
         raise ValueError("The API returned an invalid demo report.") from exc
 
 
-def submit_manual(requirement, idempotency_key):
+def submit_manual(requirement, idempotency_key, workspace_token=None):
     return _request("POST", "/runs", json={"requirement": requirement,
-                                            "idempotency_key": idempotency_key}).json()
+                                            "idempotency_key": idempotency_key},
+                    headers=_workspace_headers(workspace_token)).json()
 
 
-def submit_document(filename, content, idempotency_key):
+def submit_document(filename, content, idempotency_key, workspace_token=None):
     return _request("POST", "/runs/document", data={"idempotency_key": idempotency_key},
-                    files={"file": (filename, content)}).json()
+                    files={"file": (filename, content)},
+                    headers=_workspace_headers(workspace_token)).json()
 
 
-def get_run(run_id):
-    return _request("GET", f"/runs/{run_id}").json()
+def get_run(run_id, workspace_token=None):
+    return _request("GET", f"/runs/{run_id}", headers=_workspace_headers(workspace_token)).json()
 
 
-def get_history():
-    return _request("GET", "/runs", params={"limit": 20}).json()["runs"]
+def get_history(workspace_token=None):
+    return _request("GET", "/runs", params={"limit": 20},
+                    headers=_workspace_headers(workspace_token)).json()["runs"]
 
 
-def download_excel(run_id):
-    return _request("GET", f"/runs/{run_id}/download").content
+def download_excel(run_id, workspace_token=None):
+    return _request("GET", f"/runs/{run_id}/download", headers=_workspace_headers(workspace_token)).content

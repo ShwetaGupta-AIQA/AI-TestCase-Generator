@@ -1,15 +1,17 @@
 """Run with: python -m uvicorn api.main:app --reload"""
+import os
 from pathlib import Path
 import tempfile
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi.responses import FileResponse, JSONResponse, Response
 from openai import APIError
 from sqlalchemy.exc import SQLAlchemyError
 from services.provider_errors import provider_error_message
 
 from app import run_pipeline
-from models.api_models import RequirementRequest, RunRequest, ScenarioResponse, DocumentUploadResponse
+from models.api_models import (RequirementRequest, RunRequest, ScenarioResponse,
+                               DocumentUploadResponse, WorkspaceResponse)
 from models.requirement import RequirementAnalysis
 from services.document_reader import read_document
 from services.requirement_extractor import extract_requirements
@@ -18,10 +20,21 @@ from services.scenario_generator import generate_scenarios
 from utils.id_generator import IDGenerator
 from runs.database import init_database
 from runs.repository import create_run, get_run, list_runs, run_directory, serialize
+from services.workspace_auth import issue_workspace, verify_workspace
 
 
 app = FastAPI(title="TestGen AI API", description="AI-powered test case generation platform", version="1.0.0")
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+
+
+def workspace_owner(x_testgen_workspace: str | None = Header(default=None)):
+    """Return the caller workspace, or keep trusted local mode backward compatible."""
+    if os.getenv("TESTGEN_REQUIRE_WORKSPACE", "false").lower() != "true":
+        return "local"
+    owner = verify_workspace(x_testgen_workspace)
+    if not owner:
+        raise HTTPException(401, "Create or restore a workspace before accessing saved runs.")
+    return owner
 
 
 @app.on_event("startup")
@@ -53,6 +66,15 @@ def root():
 @app.get("/health")
 def health():
     return {"status": "healthy"}
+
+
+@app.post("/workspaces", response_model=WorkspaceResponse, status_code=201)
+def create_workspace():
+    """Create a private anonymous workspace for the Streamlit session."""
+    if os.getenv("TESTGEN_REQUIRE_WORKSPACE", "false").lower() != "true":
+        raise HTTPException(404, "Workspace protection is disabled for local development.")
+    _, token = issue_workspace()
+    return {"workspace_token": token}
 
 
 @app.post("/analyze-requirement", response_model=RequirementAnalysis)
@@ -109,17 +131,18 @@ def upload_document(file: UploadFile = File(...)):
 
 
 @app.post("/runs", status_code=202)
-def submit_run(request: RunRequest):
+def submit_run(request: RunRequest, owner_id: str = Depends(workspace_owner)):
     try:
         run, created = create_run(idempotency_key=request.idempotency_key, input_type="manual",
-                                  input_text=request.requirement)
+                                  input_text=request.requirement, owner_id=owner_id)
     except ValueError as exc:
         raise HTTPException(409, str(exc)) from exc
     return {**serialize(run), "created": created}
 
 
 @app.post("/runs/document", status_code=202)
-def submit_document_run(file: UploadFile = File(...), idempotency_key: str = Form(...)):
+def submit_document_run(file: UploadFile = File(...), idempotency_key: str = Form(...),
+                        owner_id: str = Depends(workspace_owner)):
     extension = Path(file.filename or "").suffix.lower()
     try:
         if extension not in {".txt", ".docx", ".pdf"}:
@@ -131,7 +154,8 @@ def submit_document_run(file: UploadFile = File(...), idempotency_key: str = For
             raise HTTPException(413, "Document exceeds the 10 MiB limit.")
         try:
             run, created = create_run(idempotency_key=idempotency_key, input_type="document",
-                                      filename=Path(file.filename or "document").name, content=content)
+                                      filename=Path(file.filename or "document").name, content=content,
+                                      owner_id=owner_id)
         except ValueError as exc:
             raise HTTPException(409, str(exc)) from exc
         return {**serialize(run), "created": created}
@@ -140,24 +164,30 @@ def submit_document_run(file: UploadFile = File(...), idempotency_key: str = For
 
 
 @app.get("/runs")
-def run_history(limit: int = 20):
+def run_history(limit: int = 20, owner_id: str = Depends(workspace_owner)):
     if not 1 <= limit <= 100:
         raise HTTPException(422, "Limit must be between 1 and 100.")
-    return {"runs": [serialize(run) for run in list_runs(limit)]}
+    return {"runs": [serialize(run) for run in list_runs(limit, owner_id=owner_id)]}
 
 
 @app.get("/runs/{run_id}")
-def run_status(run_id: str):
-    run = get_run(run_id)
+def run_status(run_id: str, owner_id: str = Depends(workspace_owner)):
+    run = get_run(run_id, owner_id=owner_id)
     if not run:
         raise HTTPException(404, "Run not found.")
     return serialize(run, include_result=True)
 
 
 @app.get("/runs/{run_id}/download")
-def download_run(run_id: str):
-    run = get_run(run_id)
-    if not run or run.status != "completed" or not run.excel_path:
+def download_run(run_id: str, owner_id: str = Depends(workspace_owner)):
+    run = get_run(run_id, owner_id=owner_id)
+    if not run or run.status != "completed":
+        raise HTTPException(404, "Completed workbook not found.")
+    if run.excel_data:
+        return Response(content=run.excel_data,
+                        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        headers={"Content-Disposition": 'attachment; filename="TestGen_Output.xlsx"'})
+    if not run.excel_path:
         raise HTTPException(404, "Completed workbook not found.")
     path = Path(run.excel_path)
     # The path came from the worker, but still verify its resolved parent before serving.

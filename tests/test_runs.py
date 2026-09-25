@@ -12,7 +12,7 @@ from api.main import app
 from runs.database import SessionLocal, init_database
 from runs.models import GenerationRun, utcnow
 from runs.repository import (claim_next_run, create_run, fail_stale_runs, finish_run,
-                             get_run, heartbeat, serialize)
+                             get_run, heartbeat, list_runs, serialize)
 from runs.worker import process_one
 
 
@@ -60,6 +60,17 @@ class DurableRunTests(unittest.TestCase):
         create_run(idempotency_key=document_key, input_type="document", filename="requirements.txt", content=b"same")
         with self.assertRaises(ValueError):
             create_run(idempotency_key=document_key, input_type="document", filename="requirements.pdf", content=b"same")
+
+    def test_workspace_owner_cannot_read_another_workspace_run(self):
+        owner_a, owner_b = str(uuid4()), str(uuid4())
+        first, _ = create_run(idempotency_key=self.key(), input_type="manual",
+                              input_text="Requirement alpha", owner_id=owner_a)
+        second, _ = create_run(idempotency_key=self.key(), input_type="manual",
+                               input_text="Requirement beta", owner_id=owner_b)
+        self.assertIsNotNone(get_run(first.id, owner_id=owner_a))
+        self.assertIsNone(get_run(first.id, owner_id=owner_b))
+        self.assertEqual([run.id for run in list_runs(owner_id=owner_a)], [first.id])
+        self.assertEqual([run.id for run in list_runs(owner_id=owner_b)], [second.id])
 
     def test_worker_persists_result_and_excel_without_model_on_restore(self):
         run, _ = create_run(idempotency_key=self.key(), input_type="manual", input_text="Password length 8 to 20")

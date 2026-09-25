@@ -60,6 +60,8 @@ An optional stateless demo UI calls `api.demo:app` for request-based generation
 without a database or worker. See [demo setup and limits](docs/stage-1-demo-mode.md).
 Vercel configuration and the remaining cloud checks are documented in
 [Stage 1 cloud setup](docs/stage-1-cloud-setup.md).
+The persistent free-tier Stage 2 deployment is documented in
+[Stage 2 free-tier deployment](docs/stage-2-free-tier.md).
 File upload through FastAPI extracts requirements only. It does not automatically
 run generation or export. Model responses at each AI stage are Pydantic-validated.
 

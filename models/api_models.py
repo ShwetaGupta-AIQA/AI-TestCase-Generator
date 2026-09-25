@@ -23,3 +23,7 @@ class DocumentUploadResponse(BaseModel):
     filename: str
     requirements_found: int
     requirements: list[ExtractedRequirement]
+
+
+class WorkspaceResponse(BaseModel):
+    workspace_token: str

@@ -15,7 +15,8 @@ from services.generation_errors import generation_error_message
 from openai import APIError
 from services.provider_errors import provider_error_message
 from ui.api_client import (BackendUnavailable, download_excel, get_history, get_run,
-                           submit_document, submit_manual, demo_mode, generate_demo)
+                           submit_document, submit_manual, demo_mode, generate_demo, create_workspace,
+                           workspace_required)
 from services.demo_limits import MAX_UPLOAD_BYTES, MAX_TEXT_CHARS
 from evaluation.evaluator import evaluate_test_suite
 from models.test_case import TestCase
@@ -85,17 +86,26 @@ def show_results(report):
                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 
+def workspace_token():
+    """Keep the opaque Stage 2 token in the current Streamlit session only."""
+    if not workspace_required():
+        return None
+    if "workspace_token" not in st.session_state:
+        st.session_state["workspace_token"] = create_workspace()
+    return st.session_state["workspace_token"]
+
+
 @st.fragment(run_every="2s")
 def show_saved_run(run_id):
     try:
         cache_key = f"saved-run-{run_id}"
         saved = st.session_state.get(cache_key)
         if saved is None:
-            saved = get_run(run_id)
+            saved = get_run(run_id, workspace_token())
             if saved["status"] in {"completed", "failed"}:
                 if saved["status"] == "completed":
                     try:
-                        saved["result"]["excel_data"] = download_excel(run_id)
+                        saved["result"]["excel_data"] = download_excel(run_id, workspace_token())
                     except (BackendUnavailable, ValueError):
                         saved["result"]["excel_data"] = None
                 st.session_state[cache_key] = saved
@@ -104,7 +114,7 @@ def show_saved_run(run_id):
             report = saved["result"]
             if "excel_data" not in report:
                 try:
-                    report["excel_data"] = download_excel(run_id)
+                    report["excel_data"] = download_excel(run_id, workspace_token())
                 except (BackendUnavailable, ValueError):
                     report["excel_data"] = None
             if not report.get("excel_data"):
@@ -170,7 +180,7 @@ def main():
         st.divider()
         st.subheader("Saved runs")
         try:
-            history = get_history()
+            history = get_history(workspace_token())
             for saved in history:
                 label = saved.get("original_filename") or saved["run_id"][:8]
                 if st.button(f"{label} · {saved['status']}", key=f"history-{saved['run_id']}"):
@@ -216,8 +226,9 @@ def main():
             if not pending or pending[0] != request_fingerprint:
                 pending = (request_fingerprint, str(uuid4()))
                 st.session_state["pending_submission"] = pending
-            response = (submit_document(uploaded.name, content, pending[1]) if uploaded is not None
-                        else submit_manual(text.strip(), pending[1]))
+            token = workspace_token()
+            response = (submit_document(uploaded.name, content, pending[1], token) if uploaded is not None
+                        else submit_manual(text.strip(), pending[1], token))
             st.session_state.pop("pending_submission", None)
             st.query_params["run_id"] = response["run_id"]
             st.rerun()
