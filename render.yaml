@@ -35,10 +35,6 @@ services:
         sync: false
       - key: OPENROUTER_MODEL
         value: openrouter/free
-      # Set this to the same generated value used by the web service in the
-      # Render dashboard. The worker itself does not verify workspace tokens.
-      - key: TESTGEN_WORKSPACE_SECRET
-        sync: false
 
 databases:
   - name: testgen-ai-db
