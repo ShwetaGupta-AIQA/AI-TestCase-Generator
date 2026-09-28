@@ -278,12 +278,19 @@ def main():
     st.title("🧪 TestGen AI")
     st.subheader("AI-Powered Test Case Generator")
     st.write("Turn a requirement or document into QA scenarios, test cases and a traceable Excel workbook.")
+    with st.sidebar:
+        st.header("About TestGen AI")
+        workspace_mode = st.selectbox("Workspace", ["Requirement Generator", "API Testing - Phase 1"], key="workspace-mode")
+        st.write("Analyze requirements â†’ Generate scenarios â†’ Generate test cases â†’ Validate â†’ Export Excel")
+    if workspace_mode == "API Testing - Phase 1":
+        api_testing_page()
+        return
     if demo_mode():
         demo_page()
         return
     with st.sidebar:
         st.header("About TestGen AI")
-        workspace_mode = st.selectbox("Workspace", ["Requirement Generator", "API Testing - Phase 1"])
+        workspace_mode = st.selectbox("Workspace", ["Requirement Generator", "API Testing - Phase 1"], key="workspace-mode-durable")
         st.write("Analyze requirements → Generate scenarios → Generate test cases → Validate → Export Excel")
         st.divider()
         st.caption("Document mode processes the first two extracted requirements. Text-based PDFs only; OCR is not included.")
