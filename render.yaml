@@ -3,7 +3,7 @@ services:
     name: testgen-ai-api
     runtime: docker
     plan: free
-    dockerCommand: python -m uvicorn api.main:app --host 0.0.0.0 --port $PORT
+    dockerCommand: sh scripts/start_render_web.sh
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
@@ -20,21 +20,6 @@ services:
         value: openrouter/free
       - key: TESTGEN_WORKSPACE_SECRET
         generateValue: true
-
-  - type: worker
-    name: testgen-ai-worker
-    runtime: docker
-    plan: free
-    dockerCommand: python -m runs.worker
-    envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: testgen-ai-db
-          property: connectionString
-      - key: OPENROUTER_API_KEY
-        sync: false
-      - key: OPENROUTER_MODEL
-        value: openrouter/free
 
 databases:
   - name: testgen-ai-db

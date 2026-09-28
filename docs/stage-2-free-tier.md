@@ -2,16 +2,18 @@
 
 Stage 2 changes the project from the public, session-only demonstration into a
 small persistent portfolio application. It continues to use the Streamlit UI,
-but uses a free Render web service, free Render background worker, and free
-Render Postgres database for the durable workflow.
+but uses one free Render web service and a free Render Postgres database for
+the durable workflow.
 
 ## Why the API moves from Vercel
 
 The current Vercel deployment remains the Stage 1 demo API. Its free function
 duration is unsuitable for this workload: a verified live generation can take
 more than one minute. The durable workflow uses a worker and must outlive an
-HTTP request, so it is deployed to Render instead. Render currently offers
-free web services, background workers, and Postgres with free-tier limits.
+HTTP request, so it is deployed to Render instead. Render currently offers a
+free web service and Postgres with free-tier limits. The image starts FastAPI
+and the database-backed worker together because a separate worker service is
+not available on the free plan.
 Check current terms before deploying: [Render pricing](https://render.com/pricing),
 [Render free-tier limits](https://render.com/docs/free), and
 [Vercel function limits](https://vercel.com/docs/functions/limitations).
@@ -23,7 +25,7 @@ Check current terms before deploying: [Render pricing](https://render.com/pricin
 - An API-issued, signed anonymous workspace token. A run, its status, history,
   and workbook download are visible only to the workspace that created it.
 - A Streamlit session obtains and sends the opaque workspace token automatically.
-- `render.yaml` defines the API, worker, and free Postgres database.
+- `render.yaml` defines the free API service and Postgres database.
 - Existing local durable mode remains available without workspace protection.
 
 This is anonymous workspace isolation, not an email/password account system.
@@ -36,11 +38,11 @@ Supabase Auth or another identity provider if real accounts are needed.
    `render.yaml`.
 2. On the web service, set `OPENROUTER_API_KEY` and leave
    `OPENROUTER_MODEL=openrouter/free` initially.
-3. On the worker, set the same `OPENROUTER_API_KEY` and model.
-4. Confirm the web service has `TESTGEN_REQUIRE_WORKSPACE=true` and a generated
+3. Confirm the web service has `TESTGEN_REQUIRE_WORKSPACE=true` and a generated
    `TESTGEN_WORKSPACE_SECRET` of at least 32 characters.
-5. Wait for the database, API and worker health checks to become healthy.
-6. In Streamlit Community Cloud, change secrets from Stage 1 demo mode to:
+4. Wait for the database and API health checks to become healthy. The API image
+   starts the worker automatically.
+5. In Streamlit Community Cloud, change secrets from Stage 1 demo mode to:
 
    ```toml
    TESTGEN_MODE = "durable"
@@ -50,7 +52,7 @@ Supabase Auth or another identity provider if real accounts are needed.
 
    The OpenRouter key and workspace secret belong only on Render, never in
    Streamlit secrets or GitHub.
-7. Test a manual run: submit it, refresh while it is queued/running, reopen it
+6. Test a manual run: submit it, refresh while it is queued/running, reopen it
    from **Saved runs**, then download its workbook. Repeat with a TXT upload.
 
 ## Free-tier operating limits
