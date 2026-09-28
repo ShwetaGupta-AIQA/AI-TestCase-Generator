@@ -3,6 +3,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from models.requirement import RequirementAnalysis
 from models.test_scenario import TestScenario
 from models.document_requirement import ExtractedRequirement
+from models.api_testing import ApiEndpointChoice, ApiTestPlan
 
 
 class RequirementRequest(BaseModel):
@@ -27,3 +28,13 @@ class DocumentUploadResponse(BaseModel):
 
 class WorkspaceResponse(BaseModel):
     workspace_token: str
+
+
+class ApiSpecParseResponse(BaseModel):
+    title: str
+    base_url: str
+    endpoints: list[ApiEndpointChoice]
+
+
+class ApiTestDesignResponse(BaseModel):
+    plan: ApiTestPlan

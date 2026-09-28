@@ -11,8 +11,15 @@ from services.provider_errors import provider_error_message
 
 from app import run_pipeline
 from models.api_models import (RequirementRequest, RunRequest, ScenarioResponse,
-                               DocumentUploadResponse, WorkspaceResponse)
+                               DocumentUploadResponse, WorkspaceResponse,
+                               ApiSpecParseResponse, ApiTestDesignResponse)
+from models.api_testing import ApiManualRequest, ApiSpecRequest
 from models.requirement import RequirementAnalysis
+from services.api_spec_parser import (endpoint_choices, manual_contract,
+                                      parse_openapi_spec, select_endpoint)
+from services.api_test_designer import design_api_tests
+from services.api_test_exporter import (export_api_plan_excel, export_postman_collection,
+                                        export_pytest_suite, export_soapui_project)
 from services.document_reader import read_document
 from services.requirement_extractor import extract_requirements
 from services.requirement_analyzer import analyze_requirement
@@ -25,6 +32,12 @@ from services.workspace_auth import issue_workspace, verify_workspace
 
 app = FastAPI(title="TestGen AI API", description="AI-powered test case generation platform", version="1.0.0")
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+EXPORTERS = {
+    "excel": (export_api_plan_excel, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "TestGen_API_Tests.xlsx"),
+    "postman": (export_postman_collection, "application/json", "TestGen_Postman_Collection.json"),
+    "pytest": (export_pytest_suite, "application/zip", "TestGen_Pytest_Suite.zip"),
+    "soapui": (export_soapui_project, "application/xml", "TestGen_SoapUI_Project.xml"),
+}
 
 
 def workspace_owner(x_testgen_workspace: str | None = Header(default=None)):
@@ -128,6 +141,36 @@ def upload_document(file: UploadFile = File(...)):
                     "requirements": extracted.requirements}
     finally:
         file.file.close()
+
+
+@app.post("/api-testing/spec/parse", response_model=ApiSpecParseResponse)
+def parse_api_spec(request: ApiSpecRequest):
+    contract = parse_openapi_spec(request.spec_text)
+    return {"title": contract.title, "base_url": contract.base_url, "endpoints": endpoint_choices(contract)}
+
+
+@app.post("/api-testing/design/manual", response_model=ApiTestDesignResponse)
+def design_manual_api_tests(request: ApiManualRequest):
+    contract = manual_contract(request)
+    plan = design_api_tests(contract, contract.endpoints[0])
+    return {"plan": plan}
+
+
+@app.post("/api-testing/design/spec", response_model=ApiTestDesignResponse)
+def design_spec_api_tests(request: ApiSpecRequest):
+    contract = parse_openapi_spec(request.spec_text)
+    endpoint = select_endpoint(contract, request.endpoint_key)
+    return {"plan": design_api_tests(contract, endpoint)}
+
+
+@app.post("/api-testing/export/{export_format}")
+def export_api_tests(export_format: str, plan: ApiTestDesignResponse):
+    if export_format not in EXPORTERS:
+        raise HTTPException(404, "Supported formats are excel, postman, pytest and soapui.")
+    exporter, media_type, filename = EXPORTERS[export_format]
+    content = exporter(plan.plan)
+    return Response(content=content, media_type=media_type,
+                    headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
 
 @app.post("/runs", status_code=202)

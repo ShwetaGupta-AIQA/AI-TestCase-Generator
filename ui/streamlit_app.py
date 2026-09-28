@@ -16,7 +16,8 @@ from openai import APIError
 from services.provider_errors import provider_error_message
 from ui.api_client import (BackendUnavailable, download_excel, get_history, get_run,
                            submit_document, submit_manual, demo_mode, generate_demo, create_workspace,
-                           workspace_required)
+                           workspace_required, parse_api_spec, design_manual_api_tests,
+                           design_spec_api_tests, export_api_tests)
 from services.demo_limits import MAX_UPLOAD_BYTES, MAX_TEXT_CHARS
 from evaluation.evaluator import evaluate_test_suite
 from models.test_case import TestCase
@@ -163,6 +164,115 @@ def demo_page():
         show_results(st.session_state["demo_result"])
 
 
+def _split_names(value):
+    return [item.strip() for item in value.replace("\n", ",").split(",") if item.strip()]
+
+
+def _show_api_plan(plan):
+    endpoint = plan["endpoint"]
+    st.success(f"Generated {len(plan['test_cases'])} API test cases for {endpoint['method']} {endpoint['path']}.")
+    for column, (label, value) in zip(st.columns(4), [
+        ("Functional", plan["coverage_summary"].get("Functional", 0)),
+        ("Negative", plan["coverage_summary"].get("Negative", 0)),
+        ("Validation", plan["coverage_summary"].get("Boundary/Validation", 0)),
+        ("Error Handling", plan["coverage_summary"].get("Error Handling", 0)),
+    ]):
+        column.metric(label, value)
+    with st.expander("Retrieved API context"):
+        for item in plan.get("retrieved_context", []):
+            st.write(item)
+    case_tab, export_tab = st.tabs(["API Test Cases", "Exports"])
+    with case_tab:
+        for case in plan["test_cases"]:
+            with st.expander(f"{case['test_case_id']} - {case['title']}"):
+                st.write("**Type:**", case["test_type"])
+                st.write("**Priority:**", case["priority"])
+                st.write("**Expected Status:**", case["expected_status"])
+                st.write("**Objective:**", case["objective"])
+                st.write("**Headers:**", case["request_headers"])
+                st.write("**Query Params:**", case["query_params"])
+                st.write("**Request Body:**", case["request_body"])
+                st.write("**Expected Result:**", case["expected_result"])
+    with export_tab:
+        st.caption("Choose the output your reviewer or team wants to inspect or run locally.")
+        for label, export_format, filename, mime in [
+            ("Download Excel", "excel", "TestGen_API_Tests.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
+            ("Download Postman Collection", "postman", "TestGen_Postman_Collection.json", "application/json"),
+            ("Download Pytest Suite", "pytest", "TestGen_Pytest_Suite.zip", "application/zip"),
+            ("Download SoapUI Project", "soapui", "TestGen_SoapUI_Project.xml", "application/xml"),
+        ]:
+            try:
+                data = export_api_tests(plan, export_format)
+                st.download_button(label, data, file_name=filename, mime=mime, key=f"api-export-{export_format}")
+            except (BackendUnavailable, ValueError) as exc:
+                st.error(f"{label} failed: {exc}")
+
+
+def api_testing_page():
+    st.subheader("API Testing - Phase 1")
+    st.write("Design API tests from pasted endpoint details or an OpenAPI JSON specification.")
+    source = st.radio("API input method", ["Paste API Details", "Upload / Paste OpenAPI JSON"], horizontal=True)
+    if source == "Paste API Details":
+        with st.form("manual-api-form"):
+            left, right = st.columns(2)
+            title = left.text_input("API / Service Name", value="Manual API")
+            base_url = right.text_input("Base URL", placeholder="https://api.test.example.com")
+            method = left.selectbox("Method", ["GET", "POST", "PUT", "PATCH", "DELETE"])
+            path = right.text_input("Path", value="/registrations")
+            summary = st.text_input("Business Purpose", placeholder="Create a registration for a wallet/account flow")
+            description = st.text_area("Rules / Notes", height=90,
+                                       placeholder="Paste validation rules, auth notes, response behavior or business constraints.")
+            required_headers = st.text_input("Required Headers", placeholder="Request-Id, Partner-Id, Authorization")
+            required_query = st.text_input("Required Query Params", placeholder="countryCode, locale")
+            required_body = st.text_input("Required Body Fields", placeholder="email, phone, cardName")
+            optional_body = st.text_input("Optional Body Fields", placeholder="marketingOptIn, referenceId")
+            success_status = st.text_input("Success Status", value="201")
+            error_statuses = st.text_input("Error Statuses", value="400, 401, 409, 500, 503")
+            submitted = st.form_submit_button("Generate API Test Plan", type="primary")
+        if submitted:
+            payload = {
+                "title": title,
+                "base_url": base_url,
+                "method": method,
+                "path": path,
+                "summary": summary,
+                "description": description,
+                "required_headers": _split_names(required_headers),
+                "required_query_params": _split_names(required_query),
+                "required_body_fields": _split_names(required_body),
+                "optional_body_fields": _split_names(optional_body),
+                "success_status": success_status,
+                "error_statuses": _split_names(error_statuses),
+            }
+            try:
+                st.session_state["api_test_plan"] = design_manual_api_tests(payload)
+            except (BackendUnavailable, ValueError) as exc:
+                st.error(str(exc))
+    else:
+        uploaded = st.file_uploader("OpenAPI / Swagger JSON", type=["json"])
+        spec_text = st.text_area("Or paste OpenAPI JSON", value=(uploaded.getvalue().decode("utf-8") if uploaded else ""),
+                                 height=220)
+        if st.button("Read API Specification", disabled=len(spec_text.strip()) < 20):
+            try:
+                parsed = parse_api_spec(spec_text)
+                st.session_state["api_spec_text"] = spec_text
+                st.session_state["api_spec_endpoints"] = parsed["endpoints"]
+            except (BackendUnavailable, ValueError) as exc:
+                st.error(str(exc))
+        endpoints = st.session_state.get("api_spec_endpoints", [])
+        if endpoints:
+            labels = [endpoint["label"] for endpoint in endpoints]
+            selected_label = st.selectbox("Which API do you want to test?", labels)
+            endpoint_key = endpoints[labels.index(selected_label)]["key"]
+            if st.button("Generate API Test Plan", type="primary"):
+                try:
+                    st.session_state["api_test_plan"] = design_spec_api_tests(st.session_state["api_spec_text"], endpoint_key)
+                except (BackendUnavailable, ValueError) as exc:
+                    st.error(str(exc))
+    if st.session_state.get("api_test_plan"):
+        _show_api_plan(st.session_state["api_test_plan"])
+
+
 def main():
     st.set_page_config(page_title="TestGen AI", page_icon="🧪", layout="wide")
     st.title("🧪 TestGen AI")
@@ -173,6 +283,7 @@ def main():
         return
     with st.sidebar:
         st.header("About TestGen AI")
+        workspace_mode = st.selectbox("Workspace", ["Requirement Generator", "API Testing - Phase 1"])
         st.write("Analyze requirements → Generate scenarios → Generate test cases → Validate → Export Excel")
         st.divider()
         st.caption("Document mode processes the first two extracted requirements. Text-based PDFs only; OCR is not included.")
@@ -188,6 +299,10 @@ def main():
                     st.rerun()
         except (BackendUnavailable, ValueError):
             st.caption("Start the API to load saved runs.")
+
+    if workspace_mode == "API Testing - Phase 1":
+        api_testing_page()
+        return
 
     active_run_id = st.query_params.get("run_id")
     if active_run_id:

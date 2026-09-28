@@ -84,3 +84,21 @@ def get_history(workspace_token=None):
 
 def download_excel(run_id, workspace_token=None):
     return _request("GET", f"/runs/{run_id}/download", headers=_workspace_headers(workspace_token)).content
+
+
+def parse_api_spec(spec_text):
+    return _request("POST", "/api-testing/spec/parse", json={"spec_text": spec_text}).json()
+
+
+def design_manual_api_tests(payload):
+    return _request("POST", "/api-testing/design/manual", json=payload).json()["plan"]
+
+
+def design_spec_api_tests(spec_text, endpoint_key=None):
+    return _request("POST", "/api-testing/design/spec",
+                    json={"spec_text": spec_text, "endpoint_key": endpoint_key}).json()["plan"]
+
+
+def export_api_tests(plan, export_format):
+    return _request("POST", f"/api-testing/export/{export_format}",
+                    json={"plan": plan}, timeout=httpx.Timeout(60.0, connect=5.0)).content
