@@ -2,6 +2,7 @@ services:
   - type: web
     name: testgen-ai-api
     runtime: docker
+    plan: free
     dockerCommand: python -m uvicorn api.main:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
     envVars:
@@ -23,6 +24,7 @@ services:
   - type: worker
     name: testgen-ai-worker
     runtime: docker
+    plan: free
     dockerCommand: python -m runs.worker
     envVars:
       - key: DATABASE_URL

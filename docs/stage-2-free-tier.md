@@ -56,6 +56,10 @@ Supabase Auth or another identity provider if real accounts are needed.
 ## Free-tier operating limits
 
 - Free services can sleep and have usage limits; the first request may be slow.
+- Render's free Postgres database currently has a 1 GB storage limit and expires
+  after 30 days. Treat Stage 2 data as disposable and recreate/export it before
+  expiry; permanent durable storage requires a later paid or different provider
+  decision.
 - The free model provider can be slow or unavailable. The app handles a failed
   run but does not auto-retry model calls because a retry can consume quota.
 - Store only nonconfidential requirements. Run data and files are persisted in
