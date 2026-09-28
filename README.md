@@ -27,8 +27,8 @@ reduce specific failure modes, but do not guarantee semantically correct output.
 - Per-run deterministic IDs and inclusive integer BVA with a step of one.
 - QA validation, exact duplicate-title detection and rejected-case reporting.
 - Four-sheet Excel export: Requirements, Scenarios, Test Cases and Traceability.
-- API testing Phase 1: paste endpoint details or OpenAPI JSON, select the API to test,
-  and export Excel, Postman, Pytest or SoapUI test assets.
+- API testing Phase 1: paste endpoint details, OpenAPI JSON or HTML/API portal docs,
+  select the API to test, and export Excel, Postman, Pytest or SoapUI test assets.
 - Completeness, traceability and duplicate metrics, plus golden-dataset evaluation.
 - Streamlit UI and independent FastAPI endpoints with Swagger documentation.
 - Linux dependency installation, container build, and the full regression suite are verified locally.
@@ -117,8 +117,10 @@ loopback binding for local development.
 | POST `/generate-test-cases` | Full pipeline, QA/BVA/evaluation reports |
 | POST `/upload-document` | Extract requirements from multipart `file` |
 | POST `/api-testing/spec/parse` | Read OpenAPI JSON and list selectable endpoints |
+| POST `/api-testing/html/parse` | Read HTML/API portal documentation and list extracted endpoints |
 | POST `/api-testing/design/manual` | Generate API tests from pasted endpoint details |
 | POST `/api-testing/design/spec` | Generate API tests for a selected OpenAPI endpoint |
+| POST `/api-testing/design/html` | Generate API tests for a selected endpoint from HTML docs |
 | POST `/api-testing/export/{format}` | Export API plan as `excel`, `postman`, `pytest` or `soapui` |
 
 Text endpoints accept `{"requirement":"Password must contain 8 to 20 characters"}`.
@@ -126,9 +128,10 @@ Input requires five characters after trimming. Invalid input returns 422; invali
 uploads 400; uploads over 10 MiB 413; provider or model-output failures 502.
 Completed QA reports return 200 even when some generated cases were rejected.
 
-In Streamlit durable mode, choose `API Testing - Phase 1` from the sidebar. Manual
-mode is for pasted API details; spec mode currently supports OpenAPI/Swagger JSON.
-Generated API coverage is deterministic and does not call the LLM.
+In Streamlit, choose `API Testing - Phase 1` from the sidebar. Manual mode is for
+pasted API details; spec mode supports OpenAPI/Swagger JSON; HTML mode can import
+public API portal pages or pasted documentation text. Generated API coverage is
+deterministic and does not call the LLM.
 
 ## Command-line workflows
 

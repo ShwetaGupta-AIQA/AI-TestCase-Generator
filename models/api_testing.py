@@ -43,7 +43,7 @@ class ApiContract(BaseModel):
     title: str = "API Contract"
     base_url: str = ""
     endpoints: list[ApiEndpoint]
-    source_type: Literal["manual", "openapi"] = "manual"
+    source_type: Literal["manual", "openapi", "html"] = "manual"
 
 
 class ApiManualRequest(BaseModel):
@@ -69,6 +69,14 @@ class ApiSpecRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
     spec_text: str = Field(min_length=20)
+    endpoint_key: str | None = None
+
+
+class ApiHtmlRequest(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    html_text: str = ""
+    url: str = ""
     endpoint_key: str | None = None
 
 

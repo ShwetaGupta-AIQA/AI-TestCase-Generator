@@ -99,6 +99,16 @@ def design_spec_api_tests(spec_text, endpoint_key=None):
                     json={"spec_text": spec_text, "endpoint_key": endpoint_key}).json()["plan"]
 
 
+def parse_api_html(html_text="", url=""):
+    return _request("POST", "/api-testing/html/parse", json={"html_text": html_text, "url": url}).json()
+
+
+def design_html_api_tests(html_text="", url="", endpoint_key=None):
+    return _request("POST", "/api-testing/design/html",
+                    json={"html_text": html_text, "url": url, "endpoint_key": endpoint_key},
+                    timeout=httpx.Timeout(40.0, connect=5.0)).json()["plan"]
+
+
 def export_api_tests(plan, export_format):
     return _request("POST", f"/api-testing/export/{export_format}",
                     json={"plan": plan}, timeout=httpx.Timeout(60.0, connect=5.0)).content

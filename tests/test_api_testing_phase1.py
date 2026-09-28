@@ -8,6 +8,7 @@ from openpyxl import load_workbook
 
 from api.main import app
 from models.api_testing import ApiManualRequest
+from services.api_html_parser import parse_html_api_doc
 from services.api_spec_parser import manual_contract, parse_openapi_spec
 from services.api_test_designer import design_api_tests
 from services.api_test_exporter import (export_api_plan_excel, export_postman_collection,
@@ -51,6 +52,27 @@ OPENAPI_SPEC = json.dumps({
     },
 })
 
+HTML_DOC = """
+<html>
+<head><title>Add to Samsung Wallet API Guidelines</title></head>
+<body>
+<h1>Wallet API Guidelines</h1>
+<h2>Get Card Data</h2>
+<p>GET {Partner server URL}/cards/{cardId}/{refId}?fields={fields}</p>
+<table>
+<tr><td>Authorization</td><td>Required bearer token</td></tr>
+<tr><td>x-request-id</td><td>Required request identifier</td></tr>
+</table>
+<p>Response status codes: 200, 400, 401, 404, 500, 503.</p>
+<pre>{"cardId":"abc","status":"ACTIVE"}</pre>
+<h2>Send Card State</h2>
+<p>POST {Partner server URL}/cards/{cardId}/{refId}</p>
+<pre>{"cardId":"abc","cardStatus":"SUSPENDED"}</pre>
+<p>204, 400, 401, 500</p>
+</body>
+</html>
+"""
+
 
 class ApiTestingPhase1Tests(unittest.TestCase):
     def setUp(self):
@@ -85,6 +107,20 @@ class ApiTestingPhase1Tests(unittest.TestCase):
         self.assertIn("Repeat request handles duplicate/idempotency behavior", titles)
         self.assertTrue(any("Correlation identifier" in title for title in titles))
 
+    def test_html_doc_parse_and_design(self):
+        contract = parse_html_api_doc(HTML_DOC, "https://developer.samsung.com/wallet/addtosamsungwallet/apiguidelines.html")
+        self.assertEqual(contract.source_type, "html")
+        self.assertEqual(len(contract.endpoints), 2)
+        endpoint = contract.endpoints[0]
+        self.assertEqual(endpoint.method, "GET")
+        self.assertEqual(endpoint.path, "/cards/{cardId}/{refId}")
+        self.assertIn("cardId", [param.name for param in endpoint.path_params])
+        self.assertIn("fields", [param.name for param in endpoint.query_params])
+        self.assertIn("Authorization", [header.name for header in endpoint.headers])
+        plan = design_api_tests(contract, endpoint)
+        self.assertGreaterEqual(plan.coverage_summary["Negative"], 1)
+        self.assertTrue(any("Selected endpoint: GET /cards/{cardId}/{refId}" == item for item in plan.retrieved_context))
+
     def test_fastapi_phase1_endpoints_and_exports(self):
         parsed = self.client.post("/api-testing/spec/parse", json={"spec_text": OPENAPI_SPEC})
         self.assertEqual(parsed.status_code, 200)
@@ -109,6 +145,17 @@ class ApiTestingPhase1Tests(unittest.TestCase):
 
         soapui = self.client.post("/api-testing/export/soapui", json={"plan": plan})
         self.assertIn(b"soapui-project", soapui.content)
+
+    def test_fastapi_html_endpoints(self):
+        parsed = self.client.post("/api-testing/html/parse", json={"html_text": HTML_DOC})
+        self.assertEqual(parsed.status_code, 200)
+        endpoint_key = parsed.json()["endpoints"][1]["key"]
+        designed = self.client.post("/api-testing/design/html",
+                                    json={"html_text": HTML_DOC, "endpoint_key": endpoint_key})
+        self.assertEqual(designed.status_code, 200)
+        plan = designed.json()["plan"]
+        self.assertEqual(plan["endpoint"]["method"], "POST")
+        self.assertEqual(plan["endpoint"]["path"], "/cards/{cardId}/{refId}")
 
 
 if __name__ == "__main__":

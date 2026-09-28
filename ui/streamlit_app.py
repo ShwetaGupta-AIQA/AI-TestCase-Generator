@@ -17,7 +17,8 @@ from services.provider_errors import provider_error_message
 from ui.api_client import (BackendUnavailable, download_excel, get_history, get_run,
                            submit_document, submit_manual, demo_mode, generate_demo, create_workspace,
                            workspace_required, parse_api_spec, design_manual_api_tests,
-                           design_spec_api_tests, export_api_tests)
+                           design_spec_api_tests, parse_api_html, design_html_api_tests,
+                           export_api_tests)
 from services.demo_limits import MAX_UPLOAD_BYTES, MAX_TEXT_CHARS
 from evaluation.evaluator import evaluate_test_suite
 from models.test_case import TestCase
@@ -210,8 +211,8 @@ def _show_api_plan(plan):
 
 def api_testing_page():
     st.subheader("API Testing - Phase 1")
-    st.write("Design API tests from pasted endpoint details or an OpenAPI JSON specification.")
-    source = st.radio("API input method", ["Paste API Details", "Upload / Paste OpenAPI JSON"], horizontal=True)
+    st.write("Design API tests from pasted endpoint details, OpenAPI JSON, or HTML API documentation.")
+    source = st.radio("API input method", ["Paste API Details", "Upload / Paste OpenAPI JSON", "Import HTML / URL"], horizontal=True)
     if source == "Paste API Details":
         with st.form("manual-api-form"):
             left, right = st.columns(2)
@@ -248,7 +249,7 @@ def api_testing_page():
                 st.session_state["api_test_plan"] = design_manual_api_tests(payload)
             except (BackendUnavailable, ValueError) as exc:
                 st.error(str(exc))
-    else:
+    elif source == "Upload / Paste OpenAPI JSON":
         uploaded = st.file_uploader("OpenAPI / Swagger JSON", type=["json"])
         spec_text = st.text_area("Or paste OpenAPI JSON", value=(uploaded.getvalue().decode("utf-8") if uploaded else ""),
                                  height=220)
@@ -267,6 +268,31 @@ def api_testing_page():
             if st.button("Generate API Test Plan", type="primary"):
                 try:
                     st.session_state["api_test_plan"] = design_spec_api_tests(st.session_state["api_spec_text"], endpoint_key)
+                except (BackendUnavailable, ValueError) as exc:
+                    st.error(str(exc))
+    else:
+        doc_url = st.text_input("API documentation URL", placeholder="https://developer.example.com/api-guidelines.html")
+        html_text = st.text_area("Or paste copied HTML / documentation text", height=220,
+                                 placeholder="Paste the API method, path, headers, payload and status-code sections.")
+        if st.button("Read HTML API Documentation", disabled=not doc_url.strip() and len(html_text.strip()) < 20):
+            try:
+                parsed = parse_api_html(html_text=html_text.strip(), url=doc_url.strip())
+                st.session_state["api_html_text"] = html_text.strip()
+                st.session_state["api_html_url"] = doc_url.strip()
+                st.session_state["api_html_endpoints"] = parsed["endpoints"]
+            except (BackendUnavailable, ValueError) as exc:
+                st.error(str(exc))
+        endpoints = st.session_state.get("api_html_endpoints", [])
+        if endpoints:
+            labels = [endpoint["label"] for endpoint in endpoints]
+            selected_label = st.selectbox("Confirm extracted API to test", labels)
+            endpoint_key = endpoints[labels.index(selected_label)]["key"]
+            if st.button("Generate API Test Plan", type="primary"):
+                try:
+                    st.session_state["api_test_plan"] = design_html_api_tests(
+                        html_text=st.session_state.get("api_html_text", ""),
+                        url=st.session_state.get("api_html_url", ""),
+                        endpoint_key=endpoint_key)
                 except (BackendUnavailable, ValueError) as exc:
                     st.error(str(exc))
     if st.session_state.get("api_test_plan"):

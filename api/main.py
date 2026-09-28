@@ -13,8 +13,9 @@ from app import run_pipeline
 from models.api_models import (RequirementRequest, RunRequest, ScenarioResponse,
                                DocumentUploadResponse, WorkspaceResponse,
                                ApiSpecParseResponse, ApiTestDesignResponse)
-from models.api_testing import ApiManualRequest, ApiSpecRequest
+from models.api_testing import ApiHtmlRequest, ApiManualRequest, ApiSpecRequest
 from models.requirement import RequirementAnalysis
+from services.api_html_parser import fetch_html, parse_html_api_doc
 from services.api_spec_parser import (endpoint_choices, manual_contract,
                                       parse_openapi_spec, select_endpoint)
 from services.api_test_designer import design_api_tests
@@ -149,6 +150,13 @@ def parse_api_spec(request: ApiSpecRequest):
     return {"title": contract.title, "base_url": contract.base_url, "endpoints": endpoint_choices(contract)}
 
 
+@app.post("/api-testing/html/parse", response_model=ApiSpecParseResponse)
+def parse_api_html(request: ApiHtmlRequest):
+    source = request.html_text or fetch_html(request.url)
+    contract = parse_html_api_doc(source, source_url=request.url)
+    return {"title": contract.title, "base_url": contract.base_url, "endpoints": endpoint_choices(contract)}
+
+
 @app.post("/api-testing/design/manual", response_model=ApiTestDesignResponse)
 def design_manual_api_tests(request: ApiManualRequest):
     contract = manual_contract(request)
@@ -159,6 +167,14 @@ def design_manual_api_tests(request: ApiManualRequest):
 @app.post("/api-testing/design/spec", response_model=ApiTestDesignResponse)
 def design_spec_api_tests(request: ApiSpecRequest):
     contract = parse_openapi_spec(request.spec_text)
+    endpoint = select_endpoint(contract, request.endpoint_key)
+    return {"plan": design_api_tests(contract, endpoint)}
+
+
+@app.post("/api-testing/design/html", response_model=ApiTestDesignResponse)
+def design_html_api_tests(request: ApiHtmlRequest):
+    source = request.html_text or fetch_html(request.url)
+    contract = parse_html_api_doc(source, source_url=request.url)
     endpoint = select_endpoint(contract, request.endpoint_key)
     return {"plan": design_api_tests(contract, endpoint)}
 
