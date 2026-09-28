@@ -140,22 +140,88 @@ def export_pytest_suite(plan: ApiTestPlan) -> bytes:
 
 
 def export_soapui_project(plan: ApiTestPlan) -> bytes:
+    con = "http://eviware.com/soapui/config"
+    ET.register_namespace("con", con)
+    q = lambda name: f"{{{con}}}{name}"
     project = ET.Element("con:soapui-project", {
-        "xmlns:con": "http://eviware.com/soapui/config",
         "name": f"TestGen API Tests - {plan.contract_title}",
+        "id": "testgen-api-project",
+        "activeEnvironment": "Default",
+        "soapui-version": "5.7.2",
     })
-    test_suite = ET.SubElement(project, "con:testSuite", {"name": f"{plan.endpoint.method} {plan.endpoint.path}"})
+    ET.SubElement(project, q("settings"))
+    ET.SubElement(project, q("properties"))
+    ET.SubElement(project, q("wssContainer"))
+    interface = ET.SubElement(project, q("interface"), {
+        "xsi:type": "con:RestService",
+        "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+        "id": "testgen-rest-interface",
+        "name": f"{plan.endpoint.method} {plan.endpoint.path}",
+        "type": "rest",
+    })
+    ET.SubElement(interface, q("settings"))
+    definition = ET.SubElement(interface, q("definitionCache"), {"type": "TEXT"})
+    ET.SubElement(definition, q("part")).text = json.dumps({
+        "contract": plan.contract_title,
+        "endpoint": f"{plan.endpoint.method} {plan.endpoint.path}",
+        "generatedBy": "TestGen AI",
+    }, indent=2)
+    ET.SubElement(interface, q("endpoints")).text = plan.base_url or "http://localhost"
+    resource = ET.SubElement(interface, q("resource"), {
+        "name": plan.endpoint.path,
+        "path": plan.endpoint.path,
+        "id": "testgen-resource",
+    })
+    method = ET.SubElement(resource, q("method"), {
+        "name": plan.endpoint.method,
+        "method": plan.endpoint.method,
+        "id": "testgen-method",
+    })
     for case in plan.test_cases:
-        soap_case = ET.SubElement(test_suite, "con:testCase", {"name": f"{case.test_case_id} - {case.title}"})
-        step = ET.SubElement(soap_case, "con:testStep", {"type": "restrequest", "name": case.test_case_id})
-        config = ET.SubElement(step, "con:config", {"method": case.method})
-        ET.SubElement(config, "con:endpoint").text = plan.base_url
-        ET.SubElement(config, "con:resource").text = case.path
-        ET.SubElement(config, "con:request").text = json.dumps({
+        request = ET.SubElement(method, q("request"), {
+            "name": f"{case.test_case_id} - {case.title}",
+            "mediaType": "application/json",
+            "postQueryString": "false",
+            "id": f"request-{case.test_case_id}",
+        })
+        ET.SubElement(request, q("settings"))
+        ET.SubElement(request, q("encoding")).text = "UTF-8"
+        ET.SubElement(request, q("endpoint")).text = plan.base_url or "http://localhost"
+        ET.SubElement(request, q("request")).text = json.dumps(case.request_body, indent=2) if case.request_body else ""
+        assertions = ET.SubElement(request, q("assertion"), {
+            "type": "Valid HTTP Status Codes",
+            "name": f"Expected status {case.expected_status}",
+            "id": f"assertion-{case.test_case_id}",
+        })
+        ET.SubElement(assertions, q("configuration")).text = case.expected_status
+
+    test_suite = ET.SubElement(project, q("testSuite"), {"name": f"{plan.endpoint.method} {plan.endpoint.path}"})
+    ET.SubElement(test_suite, q("settings"))
+    for case in plan.test_cases:
+        soap_case = ET.SubElement(test_suite, q("testCase"), {"name": f"{case.test_case_id} - {case.title}"})
+        ET.SubElement(soap_case, q("settings"))
+        step = ET.SubElement(soap_case, q("testStep"), {"type": "restrequest", "name": case.test_case_id})
+        config = ET.SubElement(step, q("config"), {
+            "service": f"{plan.endpoint.method} {plan.endpoint.path}",
+            "resourcePath": case.path,
+            "methodName": case.method,
+            "xsi:type": "con:RestRequestStep",
+            "xmlns:xsi": "http://www.w3.org/2001/XMLSchema-instance",
+        })
+        ET.SubElement(config, q("restRequest"), {
+            "name": case.test_case_id,
+            "mediaType": "application/json",
+            "postQueryString": "false",
+        }).text = json.dumps({
             "headers": case.request_headers,
             "query": case.query_params,
             "body": case.request_body,
             "expectedStatus": case.expected_status,
         }, indent=2)
+        ET.SubElement(soap_case, q("properties"))
+    ET.SubElement(project, q("mockService"), {"name": "Generated Mock Placeholder"})
+    ET.SubElement(project, q("environments"))
+    ET.SubElement(project, q("authRepository"))
+    ET.SubElement(project, q("tags"))
     ET.indent(project)
     return ET.tostring(project, encoding="utf-8", xml_declaration=True)

@@ -2,6 +2,7 @@ import json
 import unittest
 import zipfile
 from io import BytesIO
+from xml.etree import ElementTree as ET
 
 from fastapi.testclient import TestClient
 from openpyxl import load_workbook
@@ -145,6 +146,11 @@ class ApiTestingPhase1Tests(unittest.TestCase):
 
         soapui = self.client.post("/api-testing/export/soapui", json={"plan": plan})
         self.assertIn(b"soapui-project", soapui.content)
+        xml = ET.fromstring(soapui.content)
+        namespace = {"con": "http://eviware.com/soapui/config"}
+        self.assertIsNotNone(xml.find("con:wssContainer", namespace))
+        self.assertIsNotNone(xml.find("con:interface", namespace))
+        self.assertIsNotNone(xml.find("con:testSuite", namespace))
 
     def test_fastapi_html_endpoints(self):
         parsed = self.client.post("/api-testing/html/parse", json={"html_text": HTML_DOC})
