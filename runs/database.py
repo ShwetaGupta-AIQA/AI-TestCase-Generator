@@ -16,7 +16,15 @@ class Base(DeclarativeBase):
 
 
 def database_url():
-    return os.getenv("DATABASE_URL", DEFAULT_DATABASE)
+    value = os.getenv("DATABASE_URL", DEFAULT_DATABASE)
+    # Render exposes a conventional postgres:// connection string. SQLAlchemy
+    # otherwise selects psycopg2 for it, while this project intentionally uses
+    # the supported psycopg v3 driver.
+    if value.startswith("postgres://"):
+        return "postgresql+psycopg://" + value.removeprefix("postgres://")
+    if value.startswith("postgresql://"):
+        return "postgresql+psycopg://" + value.removeprefix("postgresql://")
+    return value
 
 
 def make_engine(url=None):
