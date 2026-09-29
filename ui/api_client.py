@@ -86,26 +86,26 @@ def download_excel(run_id, workspace_token=None):
     return _request("GET", f"/runs/{run_id}/download", headers=_workspace_headers(workspace_token)).content
 
 
-def parse_api_spec(spec_text):
-    return _request("POST", "/api-testing/spec/parse", json={"spec_text": spec_text}).json()
+def parse_api_spec(spec_text="", url=""):
+    return _request("POST", "/api-testing/spec/parse", json={"spec_text": spec_text, "url": url}).json()
 
 
 def design_manual_api_tests(payload):
     return _request("POST", "/api-testing/design/manual", json=payload).json()["plan"]
 
 
-def design_spec_api_tests(spec_text, endpoint_key=None):
+def design_spec_api_tests(spec_text, endpoint_key=None, reviewed_endpoint=None):
     return _request("POST", "/api-testing/design/spec",
-                    json={"spec_text": spec_text, "endpoint_key": endpoint_key}).json()["plan"]
+                    json={"spec_text": spec_text, "endpoint_key": endpoint_key, "reviewed_endpoint": reviewed_endpoint}).json()["plan"]
 
 
 def parse_api_html(html_text="", url=""):
     return _request("POST", "/api-testing/html/parse", json={"html_text": html_text, "url": url}).json()
 
 
-def design_html_api_tests(html_text="", url="", endpoint_key=None):
+def design_html_api_tests(html_text="", url="", endpoint_key=None, reviewed_endpoint=None):
     return _request("POST", "/api-testing/design/html",
-                    json={"html_text": html_text, "url": url, "endpoint_key": endpoint_key},
+                    json={"html_text": html_text, "url": url, "endpoint_key": endpoint_key, "reviewed_endpoint": reviewed_endpoint},
                     timeout=httpx.Timeout(40.0, connect=5.0)).json()["plan"]
 
 

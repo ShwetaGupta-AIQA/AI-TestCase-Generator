@@ -170,8 +170,58 @@ def _split_names(value):
 
 
 def _show_api_plan(plan):
+    from models.api_testing import ApiTestPlan
+    from services.api_test_strategy import STRATEGIES, select_test_scope, review_test_cases
+    import json
+    source_plan = ApiTestPlan.model_validate(plan)
+    scope_key = hashlib.sha256(json.dumps(plan, sort_keys=True).encode()).hexdigest()[:16]
+    st.subheader("Review test expectations")
+    st.caption("Confirm expectations from your API contract. These edits apply to the selected cases and all exports in this session.")
+    fields = ["test_case_id", "title", "expected_status", "priority", "expected_result"]
+    rows = [{field: getattr(case, field) for field in fields} for case in source_plan.test_cases]
+    reviewed_rows = st.data_editor(rows, disabled=["test_case_id", "title"],
+                                   column_config={"priority": st.column_config.SelectboxColumn(options=["High", "Medium", "Low"], required=True)},
+                                   key="test-review-" + scope_key, hide_index=True)
+    try:
+        source_plan = review_test_cases(source_plan, reviewed_rows)
+    except ValueError as exc:
+        st.error(str(exc))
+        return
+    st.subheader("Test strategy and review scope")
+    preset = st.radio("Coverage preset", list(STRATEGIES), index=1, horizontal=True, key="preset-" + scope_key)
+    available = list(dict.fromkeys(case.test_type for case in source_plan.test_cases))
+    categories = st.multiselect("Include test categories", available,
+                                default=[name for name in STRATEGIES[preset] if name in available],
+                                key="categories-" + scope_key + preset)
+    st.caption("Presets select existing designs. Advanced adds applicable idempotency and observability designs; "
+               "it does not add security or performance execution.")
+    scoped = select_test_scope(source_plan, categories)
+    labels = {case.test_case_id: case.title for case in scoped.test_cases}
+    excluded = st.multiselect("Exclude individual cases from review and export", list(labels),
+                              format_func=lambda case_id: f"{case_id} - {labels[case_id]}",
+                              key="exclude-" + scope_key + preset + ",".join(categories))
+    plan = select_test_scope(source_plan, categories, excluded).model_dump()
+    if not plan["test_cases"]:
+        st.info("Select at least one test case to review or export.")
+        return
+    pending = sum(not case["expected_status"].isdigit() for case in plan["test_cases"])
+    from services.api_coverage import field_design_coverage
+    coverage_rows = field_design_coverage(ApiTestPlan.model_validate(plan))
+    with st.expander("Field traceability and design gaps", expanded=True):
+        if coverage_rows:
+            covered = sum(bool(row["Selected test IDs"]) for row in coverage_rows)
+            st.write(f"{covered} of {len(coverage_rows)} documented top-level fields have a selected field-specific test design.")
+            st.dataframe(coverage_rows, hide_index=True)
+        else:
+            st.info("No structured fields were extracted. Review the contract before assessing field coverage.")
+        st.caption("A linked test does not mean every constraint is covered. This panel excludes nested fields and does not report execution results.")
+        st.write("Review gaps: nested/composed constraints, authentication and ownership scenarios, business rules, and error-trigger setup.")
+    st.write(f"Selected {len(plan['test_cases'])} of {len(source_plan.test_cases)} generated designs; "
+             f"{pending} need expected-status confirmation.")
     endpoint = plan["endpoint"]
     st.success(f"Generated {len(plan['test_cases'])} API test cases for {endpoint['method']} {endpoint['path']}.")
+    st.caption("Boundary generation currently covers top-level body/query integer limits, string lengths and enums. "
+               "Nested, decimal, pattern and composed constraints need manual review. Counts show designed tests, not executed coverage.")
     for column, (label, value) in zip(st.columns(4), [
         ("Functional", plan["coverage_summary"].get("Functional", 0)),
         ("Negative", plan["coverage_summary"].get("Negative", 0)),
@@ -196,11 +246,14 @@ def _show_api_plan(plan):
                 st.write("**Expected Result:**", case["expected_result"])
     with export_tab:
         st.caption("Choose the output your reviewer or team wants to inspect or run locally.")
+        st.info("Pytest and SoapUI 5.10.0 runners have been checked against a local mock API. "
+                "SoapUI checks cover JSON, headers, query/path parameters and status assertions. "
+                "Postman application execution and SoapUI desktop import remain unverified.")
         for label, export_format, filename, mime in [
             ("Download Excel", "excel", "TestGen_API_Tests.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
             ("Download Postman Collection", "postman", "TestGen_Postman_Collection.json", "application/json"),
             ("Download Pytest Suite", "pytest", "TestGen_Pytest_Suite.zip", "application/zip"),
-            ("Download SoapUI Project", "soapui", "TestGen_SoapUI_Project.xml", "application/xml"),
+            ("Download SoapUI Project (experimental)", "soapui", "TestGen_SoapUI_Project.xml", "application/xml"),
         ]:
             try:
                 data = export_api_tests(plan, export_format)
@@ -209,10 +262,65 @@ def _show_api_plan(plan):
                 st.error(f"{label} failed: {exc}")
 
 
+def _review_api_endpoint(choice):
+    import json
+    contract = choice.get("contract")
+    if not contract:
+        st.warning("Deploy the updated backend to enable contract review.")
+        return None
+    for warning in contract.get("warnings", []):
+        st.warning(warning)
+    st.caption("Review extracted details before generation. Use advanced JSON for nested schemas and authentication.")
+    st.write("Source:", contract.get("source_reference", ""))
+    review_key = "review-" + str(hash(json.dumps(contract, sort_keys=True)))
+    mode = st.radio("Contract editor", ["Guided fields", "Advanced JSON"], key=review_key)
+    if mode == "Guided fields":
+        import copy
+        value = copy.deepcopy(contract)
+        methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]
+        value["method"] = st.selectbox("HTTP method", methods, index=methods.index(contract["method"]), key=review_key + "method")
+        value["path"] = st.text_input("Endpoint path", contract["path"], key=review_key + "path")
+        value["summary"] = st.text_input("Purpose", contract.get("summary", ""), key=review_key + "summary")
+        value["description"] = st.text_area("Rules and source excerpt", contract.get("description", ""), key=review_key + "description")
+        response_rows = [{"status_code": item["status_code"], "description": item.get("description", "")}
+                         for item in contract.get("responses", [])]
+        import pandas as pd
+        rows = st.data_editor(pd.DataFrame(response_rows, columns=["status_code", "description"]),
+                              num_rows="dynamic", key=review_key + "responses")
+        originals = {item["status_code"]: item for item in contract.get("responses", [])}
+        value["responses"] = []
+        for row in rows.to_dict("records"):
+            code = str(row.get("status_code") or "").strip()
+            if not code:
+                continue
+            if not (code == "default" or len(code) == 3 and code[0] in "12345" and (code.isdigit() or code[1:] == "XX")):
+                st.error("Response codes must be HTTP codes, ranges such as 2XX, or default.")
+                return None
+            value["responses"].append({**originals.get(code, {}), "status_code": code,
+                                       "description": str(row.get("description") or "")})
+        with st.expander("Parameters, schemas and authentication"):
+            st.json({name: contract.get(name, {}) for name in ["headers", "query_params", "path_params", "body_fields", "request_schema", "security"]})
+        if not value["path"].startswith("/"):
+            st.error("Endpoint path must start with /.")
+            return None
+        st.caption("Switching editors uses the original imported contract. Generate from the current editor to apply corrections.")
+        return value
+    edited = st.text_area("Endpoint contract", json.dumps(contract, indent=2), height=300,
+                          key="contract-review-" + str(hash(json.dumps(contract, sort_keys=True))))
+    try:
+        value = json.loads(edited)
+        if not isinstance(value, dict):
+            raise ValueError("Contract must be a JSON object.")
+        return value
+    except ValueError as exc:
+        st.error(str(exc))
+        return None
+
+
 def api_testing_page():
     st.subheader("API Testing - Phase 1")
-    st.write("Design API tests from pasted endpoint details, OpenAPI JSON, or HTML API documentation.")
-    source = st.radio("API input method", ["Paste API Details", "Upload / Paste OpenAPI JSON", "Import HTML / URL"], horizontal=True)
+    st.write("Design API tests from endpoint details, OpenAPI JSON/YAML, or HTML documentation.")
+    source = st.radio("API input method", ["Paste API Details", "Import OpenAPI", "Import HTML / URL"], horizontal=True)
     if source == "Paste API Details":
         with st.form("manual-api-form"):
             left, right = st.columns(2)
@@ -249,30 +357,42 @@ def api_testing_page():
                 st.session_state["api_test_plan"] = design_manual_api_tests(payload)
             except (BackendUnavailable, ValueError) as exc:
                 st.error(str(exc))
-    elif source == "Upload / Paste OpenAPI JSON":
-        uploaded = st.file_uploader("OpenAPI / Swagger JSON", type=["json"])
-        spec_text = st.text_area("Or paste OpenAPI JSON", value=(uploaded.getvalue().decode("utf-8") if uploaded else ""),
+    elif source == "Import OpenAPI":
+        st.caption("Supported: OpenAPI 3.0 / 3.1, JSON or YAML. Bundle external references before importing.")
+        uploaded = st.file_uploader("OpenAPI specification", type=["json", "yaml", "yml"])
+        spec_url = st.text_input("Or import a public HTTPS specification URL", placeholder="https://example.com/openapi.yaml")
+        spec_text = st.text_area("Or paste OpenAPI JSON / YAML", value=(uploaded.getvalue().decode("utf-8-sig", errors="replace") if uploaded else ""),
                                  height=220)
-        if st.button("Read API Specification", disabled=len(spec_text.strip()) < 20):
+        st.caption("Uploaded or pasted content takes precedence over the URL. URL imports use the final URL without redirects.")
+        if st.button("Read API Specification", disabled=not spec_text.strip() and not spec_url.strip()):
             try:
-                parsed = parse_api_spec(spec_text)
-                st.session_state["api_spec_text"] = spec_text
+                parsed = parse_api_spec(spec_text, spec_url.strip())
+                st.session_state["api_spec_text"] = parsed.get("source_text") or spec_text
                 st.session_state["api_spec_endpoints"] = parsed["endpoints"]
             except (BackendUnavailable, ValueError) as exc:
+                st.session_state.pop("api_spec_endpoints", None)
                 st.error(str(exc))
         endpoints = st.session_state.get("api_spec_endpoints", [])
+        if endpoints:
+            search = st.text_input("Search endpoints by method, path or description", key="spec-search")
+            endpoints = [item for item in endpoints if search.lower() in item["label"].lower()]
+            if not endpoints:
+                st.info("No endpoints match your search.")
         if endpoints:
             labels = [endpoint["label"] for endpoint in endpoints]
             selected_label = st.selectbox("Which API do you want to test?", labels)
             endpoint_key = endpoints[labels.index(selected_label)]["key"]
-            if st.button("Generate API Test Plan", type="primary"):
+            reviewed = _review_api_endpoint(endpoints[labels.index(selected_label)])
+            if st.button("Generate API Test Plan", type="primary", disabled=reviewed is None):
                 try:
-                    st.session_state["api_test_plan"] = design_spec_api_tests(st.session_state["api_spec_text"], endpoint_key)
+                    st.session_state["api_test_plan"] = design_spec_api_tests(st.session_state["api_spec_text"], endpoint_key, reviewed)
                 except (BackendUnavailable, ValueError) as exc:
                     st.error(str(exc))
     else:
         doc_url = st.text_input("API documentation URL", placeholder="https://developer.example.com/api-guidelines.html")
+        html_upload = st.file_uploader("Or upload HTML documentation", type=["html", "htm", "txt"])
         html_text = st.text_area("Or paste copied HTML / documentation text", height=220,
+                                 value=html_upload.getvalue().decode("utf-8", errors="replace") if html_upload else "",
                                  placeholder="Paste the API method, path, headers, payload and status-code sections.")
         if st.button("Read HTML API Documentation", disabled=not doc_url.strip() and len(html_text.strip()) < 20):
             try:
@@ -284,15 +404,21 @@ def api_testing_page():
                 st.error(str(exc))
         endpoints = st.session_state.get("api_html_endpoints", [])
         if endpoints:
+            search = st.text_input("Search extracted endpoints", key="html-search")
+            endpoints = [item for item in endpoints if search.lower() in item["label"].lower()]
+            if not endpoints:
+                st.info("No endpoints match your search.")
+        if endpoints:
             labels = [endpoint["label"] for endpoint in endpoints]
             selected_label = st.selectbox("Confirm extracted API to test", labels)
             endpoint_key = endpoints[labels.index(selected_label)]["key"]
-            if st.button("Generate API Test Plan", type="primary"):
+            reviewed = _review_api_endpoint(endpoints[labels.index(selected_label)])
+            if st.button("Generate API Test Plan", type="primary", disabled=reviewed is None):
                 try:
                     st.session_state["api_test_plan"] = design_html_api_tests(
                         html_text=st.session_state.get("api_html_text", ""),
                         url=st.session_state.get("api_html_url", ""),
-                        endpoint_key=endpoint_key)
+                        endpoint_key=endpoint_key, reviewed_endpoint=reviewed)
                 except (BackendUnavailable, ValueError) as exc:
                     st.error(str(exc))
     if st.session_state.get("api_test_plan"):

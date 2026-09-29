@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -14,12 +14,14 @@ class ApiParameter(BaseModel):
     required: bool = False
     data_type: str = "string"
     description: str = ""
-    example: str | None = None
+    example: Any = None
+    schema_definition: dict[str, Any] = Field(default_factory=dict)
 
 
 class ApiResponseSpec(BaseModel):
     status_code: str
     description: str = ""
+    content: dict[str, Any] = Field(default_factory=dict)
 
 
 class ApiEndpoint(BaseModel):
@@ -35,6 +37,10 @@ class ApiEndpoint(BaseModel):
     path_params: list[ApiParameter] = Field(default_factory=list)
     body_fields: list[ApiParameter] = Field(default_factory=list)
     responses: list[ApiResponseSpec] = Field(default_factory=list)
+    request_schema: dict[str, Any] = Field(default_factory=dict)
+    security: list[dict[str, Any]] = Field(default_factory=list)
+    source_reference: str = ""
+    warnings: list[str] = Field(default_factory=list)
 
 
 class ApiContract(BaseModel):
@@ -44,6 +50,7 @@ class ApiContract(BaseModel):
     base_url: str = ""
     endpoints: list[ApiEndpoint]
     source_type: Literal["manual", "openapi", "html"] = "manual"
+    security_schemes: dict[str, Any] = Field(default_factory=dict)
 
 
 class ApiManualRequest(BaseModel):
@@ -68,8 +75,10 @@ class ApiManualRequest(BaseModel):
 class ApiSpecRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
-    spec_text: str = Field(min_length=20)
+    spec_text: str = ""
+    url: str = ""
     endpoint_key: str | None = None
+    reviewed_endpoint: ApiEndpoint | None = None
 
 
 class ApiHtmlRequest(BaseModel):
@@ -78,6 +87,7 @@ class ApiHtmlRequest(BaseModel):
     html_text: str = ""
     url: str = ""
     endpoint_key: str | None = None
+    reviewed_endpoint: ApiEndpoint | None = None
 
 
 class ApiEndpointChoice(BaseModel):
@@ -86,6 +96,7 @@ class ApiEndpointChoice(BaseModel):
     method: HttpMethod
     path: str
     summary: str = ""
+    contract: ApiEndpoint | None = None
 
 
 class ApiTestCase(BaseModel):
@@ -100,11 +111,12 @@ class ApiTestCase(BaseModel):
     request_headers: dict[str, str] = Field(default_factory=dict)
     query_params: dict[str, str] = Field(default_factory=dict)
     path_params: dict[str, str] = Field(default_factory=dict)
-    request_body: dict[str, str] = Field(default_factory=dict)
+    request_body: Any = Field(default_factory=dict)
     steps: list[str]
     expected_status: str
     expected_result: str
     negative_reason: str = ""
+    covered_field: str = ""
     source: str = "Deterministic API QA Engine"
 
 

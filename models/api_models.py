@@ -34,6 +34,7 @@ class ApiSpecParseResponse(BaseModel):
     title: str
     base_url: str
     endpoints: list[ApiEndpointChoice]
+    source_text: str = ""
 
 
 class ApiTestDesignResponse(BaseModel):

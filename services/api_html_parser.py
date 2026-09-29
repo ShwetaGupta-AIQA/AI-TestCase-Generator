@@ -103,14 +103,12 @@ def _body_fields(section: str) -> list[ApiParameter]:
 def _responses(section: str) -> list[ApiResponseSpec]:
     statuses = [status for status in STATUS_PATTERN.findall(section)
                 if status.startswith(("2", "3", "4", "5"))]
-    if not statuses:
-        statuses = ["200", "400", "500"]
     return [ApiResponseSpec(status_code=status, description="Found in HTML documentation")
             for status in dict.fromkeys(statuses)]
 
 
 def _section_around(text: str, start: int, next_start: int | None) -> str:
-    left = max(0, start - 1200)
+    left = start
     right = min(len(text), next_start if next_start is not None else start + 3000)
     return text[left:right]
 
@@ -152,6 +150,8 @@ def parse_html_api_doc(html_or_text: str, source_url: str = "") -> ApiContract:
             path_params=_path_params(path),
             body_fields=_body_fields(section),
             responses=_responses(section),
+            source_reference=source_url or "Pasted documentation",
+            warnings=["Extracted details need confirmation: headers, body fields and status codes may be ambiguous."],
         ))
     if not endpoints:
         raise ValueError("No API operations were found. Paste the API method/path section or use OpenAPI JSON.")
@@ -159,5 +159,5 @@ def parse_html_api_doc(html_or_text: str, source_url: str = "") -> ApiContract:
     title_match = re.search(r"\b([A-Z][A-Za-z0-9 ]{3,80} API(?: Guidelines| Reference| Documentation)?)\b", text)
     if title_match:
         title = title_match.group(1)
-    base_url = source_url.rstrip("/") if source_url else ""
+    base_url = ""
     return ApiContract(title=title, base_url=base_url, endpoints=endpoints, source_type="html")

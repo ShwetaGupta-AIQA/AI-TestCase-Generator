@@ -146,8 +146,11 @@ def upload_document(file: UploadFile = File(...)):
 
 @app.post("/api-testing/spec/parse", response_model=ApiSpecParseResponse)
 def parse_api_spec(request: ApiSpecRequest):
-    contract = parse_openapi_spec(request.spec_text)
-    return {"title": contract.title, "base_url": contract.base_url, "endpoints": endpoint_choices(contract)}
+    from services.api_spec_fetcher import fetch_specification
+    source = request.spec_text or fetch_specification(request.url)
+    contract = parse_openapi_spec(source)
+    return {"title": contract.title, "base_url": contract.base_url, "endpoints": endpoint_choices(contract),
+            "source_text": source}
 
 
 @app.post("/api-testing/html/parse", response_model=ApiSpecParseResponse)
@@ -167,7 +170,7 @@ def design_manual_api_tests(request: ApiManualRequest):
 @app.post("/api-testing/design/spec", response_model=ApiTestDesignResponse)
 def design_spec_api_tests(request: ApiSpecRequest):
     contract = parse_openapi_spec(request.spec_text)
-    endpoint = select_endpoint(contract, request.endpoint_key)
+    endpoint = request.reviewed_endpoint or select_endpoint(contract, request.endpoint_key)
     return {"plan": design_api_tests(contract, endpoint)}
 
 
@@ -175,7 +178,7 @@ def design_spec_api_tests(request: ApiSpecRequest):
 def design_html_api_tests(request: ApiHtmlRequest):
     source = request.html_text or fetch_html(request.url)
     contract = parse_html_api_doc(source, source_url=request.url)
-    endpoint = select_endpoint(contract, request.endpoint_key)
+    endpoint = request.reviewed_endpoint or select_endpoint(contract, request.endpoint_key)
     return {"plan": design_api_tests(contract, endpoint)}
 
 

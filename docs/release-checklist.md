@@ -1,5 +1,8 @@
 # Release checklist
 
+API workspace upgrade: complete [export verification](api-export-verification.md)
+before publishing the locally implemented import/review/coverage changes.
+
 ## Verified locally
 
 - Existing dependency environment passes `python -m pip check`.

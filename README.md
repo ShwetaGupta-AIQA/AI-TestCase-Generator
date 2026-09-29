@@ -27,7 +27,7 @@ reduce specific failure modes, but do not guarantee semantically correct output.
 - Per-run deterministic IDs and inclusive integer BVA with a step of one.
 - QA validation, exact duplicate-title detection and rejected-case reporting.
 - Four-sheet Excel export: Requirements, Scenarios, Test Cases and Traceability.
-- API testing Phase 1: paste endpoint details, OpenAPI JSON or HTML/API portal docs,
+- API testing Phase 1: paste endpoint details, OpenAPI JSON/YAML or HTML/API portal docs,
   select the API to test, and export Excel, Postman, Pytest or SoapUI test assets.
 - Completeness, traceability and duplicate metrics, plus golden-dataset evaluation.
 - Streamlit UI and independent FastAPI endpoints with Swagger documentation.
@@ -116,7 +116,7 @@ loopback binding for local development.
 | POST `/generate-scenarios` | Analysis and scenarios |
 | POST `/generate-test-cases` | Full pipeline, QA/BVA/evaluation reports |
 | POST `/upload-document` | Extract requirements from multipart `file` |
-| POST `/api-testing/spec/parse` | Read OpenAPI JSON and list selectable endpoints |
+| POST `/api-testing/spec/parse` | Read OpenAPI 3.0/3.1 JSON/YAML or a public HTTPS specification URL |
 | POST `/api-testing/html/parse` | Read HTML/API portal documentation and list extracted endpoints |
 | POST `/api-testing/design/manual` | Generate API tests from pasted endpoint details |
 | POST `/api-testing/design/spec` | Generate API tests for a selected OpenAPI endpoint |
@@ -129,9 +129,22 @@ uploads 400; uploads over 10 MiB 413; provider or model-output failures 502.
 Completed QA reports return 200 even when some generated cases were rejected.
 
 In Streamlit, choose `API Testing - Phase 1` from the sidebar. Manual mode is for
-pasted API details; spec mode supports OpenAPI/Swagger JSON; HTML mode can import
+pasted API details; spec mode supports OpenAPI 3.0/3.1 JSON/YAML; HTML mode can import
 public API portal pages or pasted documentation text. Generated API coverage is
 deterministic and does not call the LLM.
+
+The API workspace includes searchable endpoints, guided/JSON contract review,
+editable expectations, strategy presets, case exclusion and field-to-test traceability.
+Boundary generation covers top-level body/query integer limits, string lengths and
+enums. Nested/composed constraints still require review. Swagger 2.0 and external
+references require conversion/bundling before import.
+
+Exports use the selected, reviewed cases. Pytest has been exercised against a local
+mock API. SoapUI 5.10.0 runner checks cover JSON bodies, headers, query/path
+parameters and passing/failing status assertions. Postman execution and SoapUI
+desktop import remain unverified; SoapUI remains experimental. Generated execution assertions currently
+check status codes only. Design counts do not establish execution or complete
+coverage. See the [export verification checklist](docs/api-export-verification.md).
 
 ## Command-line workflows
 

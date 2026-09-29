@@ -1,13 +1,35 @@
 from collections import Counter
+from services.api_boundaries import boundary_values
 
 from models.api_testing import ApiContract, ApiEndpoint, ApiParameter, ApiTestCase, ApiTestPlan
 
 
-def _sample_value(param: ApiParameter, invalid: bool = False) -> str:
+def _schema_sample(schema):
+    if "example" in schema:
+        return schema["example"]
+    if "enum" in schema and schema["enum"]:
+        return schema["enum"][0]
+    kind = schema.get("type")
+    if kind == "object" or "properties" in schema:
+        return {name: _schema_sample(value) for name, value in schema.get("properties", {}).items()}
+    if kind == "array":
+        return [_schema_sample(schema.get("items", {})) for _ in range(min(schema.get("minItems", 1), 20))]
+    if kind in {"integer", "number"}:
+        return schema.get("minimum", 1)
+    if kind == "boolean":
+        return True
+    if kind == "null":
+        return None
+    return "x" * max(1, min(schema.get("minLength", 1), 1000))
+
+
+def _sample_value(param: ApiParameter, invalid: bool = False):
     if invalid:
         return ""
     if param.example is not None:
         return param.example
+    if param.schema_definition:
+        return _schema_sample(param.schema_definition)
     name = param.name.lower()
     if "email" in name:
         return "qa.user@example.com"
@@ -24,10 +46,10 @@ def _sample_value(param: ApiParameter, invalid: bool = False) -> str:
 
 def _payload(endpoint: ApiEndpoint) -> tuple[dict[str, str], dict[str, str], dict[str, str], dict[str, str]]:
     return (
-        {p.name: _sample_value(p) for p in endpoint.headers},
-        {p.name: _sample_value(p) for p in endpoint.query_params},
-        {p.name: _sample_value(p) for p in endpoint.path_params},
-        {p.name: _sample_value(p) for p in endpoint.body_fields},
+        {p.name: str(_sample_value(p)) for p in endpoint.headers},
+        {p.name: str(_sample_value(p)) for p in endpoint.query_params},
+        {p.name: str(_sample_value(p)) for p in endpoint.path_params},
+        _schema_sample(endpoint.request_schema) if endpoint.request_schema else {p.name: _sample_value(p) for p in endpoint.body_fields},
     )
 
 
@@ -35,12 +57,12 @@ def _success_status(endpoint: ApiEndpoint) -> str:
     for response in endpoint.responses:
         if response.status_code.startswith("2"):
             return response.status_code
-    return "200"
+    return "Needs confirmation"
 
 
 def _error_statuses(endpoint: ApiEndpoint) -> list[str]:
     statuses = [r.status_code for r in endpoint.responses if not r.status_code.startswith("2")]
-    return statuses or ["400", "401", "404", "500"]
+    return statuses
 
 
 def _case(case_number: int, endpoint: ApiEndpoint, title: str, test_type: str, priority: str,
@@ -106,20 +128,28 @@ def design_api_tests(contract: ApiContract, endpoint: ApiEndpoint) -> ApiTestPla
     for param in [p for p in endpoint.headers + endpoint.query_params + endpoint.path_params + endpoint.body_fields if p.required]:
         def missing(headers, query, path, body, p=param):
             target = {"header": headers, "query": query, "path": path, "body": body}.get(p.location, body)
-            target.pop(p.name, None)
+            if isinstance(target, dict):
+                target.pop(p.name, None)
         tests.append(_case(case_number, endpoint, f"Missing required {param.location} field {param.name}", "Negative", "High",
-                           f"Verify validation when required {param.location} field {param.name} is absent.", "400",
+                           f"Verify validation when required {param.location} field {param.name} is absent.", "Needs confirmation",
                            "API rejects the request with a clear validation error.", f"{param.name} missing", missing))
+        tests[-1].covered_field = f"{param.location}:{param.name}"
         case_number += 1
 
-    for param in endpoint.body_fields[:3] + endpoint.query_params[:2]:
-        def invalid(headers, query, path, body, p=param):
-            target = body if p.location == "body" else query
-            target[p.name] = _sample_value(p, invalid=True)
-        tests.append(_case(case_number, endpoint, f"Invalid value for {param.name}", "Boundary/Validation", "Medium",
-                           f"Check type/format validation for {param.name}.", "400",
-                           "API rejects invalid or boundary value and returns a useful error message.", "invalid value", invalid))
-        case_number += 1
+    for param in endpoint.body_fields + endpoint.query_params:
+        for label, value, valid in boundary_values(param.schema_definition):
+            def mutate(headers, query, path, body, p=param, candidate=value):
+                target = body if p.location == "body" else query
+                if isinstance(target, dict):
+                    target[p.name] = candidate if p.location == "body" else str(candidate)
+            tests.append(_case(case_number, endpoint, f"{param.name}: {label}", "Boundary/Validation", "Medium",
+                               f"Validate documented constraint for {param.location} field {param.name}.",
+                               "Needs confirmation",
+                               ("Value satisfies the field schema; confirm remaining business rules and success status."
+                                if valid else "Value violates the field schema; confirm validation error status and response."),
+                               "" if valid else "Documented constraint violated", mutate))
+            tests[-1].covered_field = f"{param.location}:{param.name}"
+            case_number += 1
 
     for status in _error_statuses(endpoint):
         tests.append(_case(case_number, endpoint, f"Documented error handling for HTTP {status}", "Error Handling", "Medium",
