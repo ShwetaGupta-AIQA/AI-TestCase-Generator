@@ -141,8 +141,10 @@ references require conversion/bundling before import.
 
 Exports use the selected, reviewed cases. Pytest has been exercised against a local
 mock API. SoapUI 5.10.0 runner checks cover JSON bodies, headers, query/path
-parameters and passing/failing status assertions. Postman execution and SoapUI
-desktop import remain unverified; SoapUI remains experimental. Generated execution assertions currently
+parameters and passing/failing status assertions. The official Postman CLI also
+passed local mock checks for JSON, headers, encoded queries, status assertions and
+skipping unconfirmed cases. Postman and SoapUI desktop imports remain unverified;
+SoapUI remains experimental. Generated execution assertions currently
 check status codes only. Design counts do not establish execution or complete
 coverage. See the [export verification checklist](docs/api-export-verification.md).
 

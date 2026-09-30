@@ -2,6 +2,11 @@
 
 ## Local evidence
 
+- Official Postman CLI executes the generated collection against a loopback mock.
+  Checks verify JSON bodies, headers, encoded query values, passing/failing status
+  assertions and no request sent for unconfirmed cases. Repeat with
+  `python -m unittest tests.test_postman_runner -v`; set `POSTMAN_CLI` to its binary.
+
 - API tests cover contract parsing, review, selection and export contents.
 - Streamlit AppTest covers editors and selection, using mocked export responses.
 - Exported Python functions are tested with a mocked HTTP transport.
@@ -21,7 +26,8 @@ Desktop import remains unverified.
 - Run in Postman Collection Runner; confirm unconfirmed cases send no request.
 - Import a fresh SoapUI XML and run one request against a mock.
   The command-line runner is verified for the cases above; desktop review is pending.
-- Do not describe Postman execution or broad SoapUI compatibility as verified.
+- Desktop imports and broad compatibility remain unverified; runner evidence is
+  limited to the cases documented above.
 - Rebuild backend and Streamlit dependencies (PyYAML and jsonschema added).
 - Deploy backend before UI, then verify OpenAPI JSON/YAML/URL and HTML imports.
 - Verify edited expectations and selected cases survive reruns and reach exports.

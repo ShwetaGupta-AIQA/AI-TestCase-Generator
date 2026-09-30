@@ -248,7 +248,8 @@ def _show_api_plan(plan):
         st.caption("Choose the output your reviewer or team wants to inspect or run locally.")
         st.info("Pytest and SoapUI 5.10.0 runners have been checked against a local mock API. "
                 "SoapUI checks cover JSON, headers, query/path parameters and status assertions. "
-                "Postman application execution and SoapUI desktop import remain unverified.")
+                "Postman CLI checks cover JSON, headers, encoded queries, status assertions and skipping unconfirmed cases. "
+                "Postman and SoapUI desktop imports remain unverified.")
         for label, export_format, filename, mime in [
             ("Download Excel", "excel", "TestGen_API_Tests.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
             ("Download Postman Collection", "postman", "TestGen_Postman_Collection.json", "application/json"),
