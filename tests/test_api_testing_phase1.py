@@ -189,6 +189,9 @@ class ApiTestingPhase1Tests(unittest.TestCase):
                 fetch_specification("https://localhost/spec")
 
     def test_invalid_yaml_and_aliases_report_actionable_errors(self):
+        response = self.client.post("/api-testing/spec/parse", json={"spec_text": "openapi: [broken"})
+        self.assertEqual(response.status_code, 422)
+        self.assertIn("line", response.json()["detail"])
         with self.assertRaisesRegex(ValueError, "line"):
             parse_openapi_spec("openapi: [broken")
         with self.assertRaisesRegex(ValueError, "anchors and aliases"):

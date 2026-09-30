@@ -147,8 +147,11 @@ def upload_document(file: UploadFile = File(...)):
 @app.post("/api-testing/spec/parse", response_model=ApiSpecParseResponse)
 def parse_api_spec(request: ApiSpecRequest):
     from services.api_spec_fetcher import fetch_specification
-    source = request.spec_text or fetch_specification(request.url)
-    contract = parse_openapi_spec(source)
+    try:
+        source = request.spec_text or fetch_specification(request.url)
+        contract = parse_openapi_spec(source)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
     return {"title": contract.title, "base_url": contract.base_url, "endpoints": endpoint_choices(contract),
             "source_text": source}
 
