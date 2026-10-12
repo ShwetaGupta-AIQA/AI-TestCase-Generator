@@ -226,8 +226,7 @@ throughput needs exceed this database-backed queue. Individual AI-stage checkpoi
 are not implemented.
 
 The image excludes `.env`, runs as a non-root user, and uses service-specific health
-checks. Docker was unavailable during implementation, so build and container execution
-are **not yet verified**.
+checks. Docker build and container execution are **not yet verified**.
 See [release checklist](docs/release-checklist.md) for validation and GitHub steps.
 
 ## Project map
@@ -260,6 +259,6 @@ large-document retrieval, and Jira/OpenAPI integrations.
 lists actual captures to add; no screenshots are fabricated or linked before they
 exist. 
 
-Local code and release configuration are prepared. Docker build/run, actual UI
-screenshots, live-model evaluation and GitHub publication remain release checkpoints.
-Git/Docker tools were not available, and a GitHub destination has not been provided.
+The project is published at [GitHub](https://github.com/ShwetaGupta-AIQA/AI-TestCase-Generator).
+Docker build/run, actual UI screenshots and live-model evaluation remain release
+checkpoints; see the [release checklist](docs/release-checklist.md) for current status.

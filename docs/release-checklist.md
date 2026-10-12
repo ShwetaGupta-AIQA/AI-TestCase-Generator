@@ -1,7 +1,8 @@
 # Release checklist
 
-API workspace upgrade: complete [export verification](api-export-verification.md)
-before publishing the locally implemented import/review/coverage changes.
+The project is published at
+[github.com/ShwetaGupta-AIQA/AI-TestCase-Generator](https://github.com/ShwetaGupta-AIQA/AI-TestCase-Generator).
+API export behavior is documented in [export verification](api-export-verification.md).
 
 ## Verified locally
 
@@ -10,16 +11,14 @@ before publishing the locally implemented import/review/coverage changes.
   mocked AI responses, QA/BVA, metrics, Excel traceability and Streamlit interaction.
 - Secret/output exclusions and a placeholder-only `.env.example` are present.
 
-## Still to verify before publishing V1
+## Remaining release checks
 
-- Install Git and Docker Desktop; neither was available during packaging.
-- Build and run the Docker image; the Dockerfile uses Python 3.14 to match the
+- Build and run the Docker image; Docker execution has not yet been verified. The Dockerfile uses Python 3.14 to match the
   environment used for regression tests. A frozen Windows environment still needs
   verification in Linux, including package/wheel availability.
 - Run live generation and `run_evaluation.py` with your own API key. Record results;
   never substitute mocked test results for model accuracy.
 - Capture actual screenshots using the synthetic sample BRD (see images/README.md).
-- Choose the GitHub repository URL and publish after reviewing staged files.
 
 ## Docker verification
 
@@ -41,31 +40,28 @@ docker run --rm -p 127.0.0.1:8000:8000 --env-file .env --no-healthcheck testgen-
 Check `/health` manually for this API command. The default container health check
 targets Streamlit and is disabled when running FastAPI instead.
 
-## GitHub publication
+## Publishing future changes
 
-Run from the project root after Git is installed:
+The GitHub remote is already configured as `origin`, with `main` tracking
+`origin/main`. From the project root, review and stage only intended files:
 
 ```powershell
-git init -b main
-git check-ignore .env
-git add .
+git status --short --branch
+git add README.md docs/release-checklist.md
 git diff --cached --name-only
 git diff --cached --stat
 ```
 
 Confirm `.env`, `.venv`, generated workbooks and proprietary documents are absent.
-Review staged changes locally before committing. Configure your Git author identity
-if needed, then:
+After reviewing staged changes, commit and push:
 
 ```powershell
-git commit -m "Build TestGen AI MVP"
-git remote add origin YOUR_ACTUAL_REPOSITORY_URL
-git push -u origin main
+git commit -m "Update release documentation"
+git push origin main
 ```
 
-Replace the URL only with the destination you intend to publish to. Do not
-force-push an existing repository. If `.env` was previously tracked, ignore rules
-alone do not remove it from history: revoke any exposed key before publication.
+Do not force-push. If `.env` was previously tracked, ignore rules alone do not
+remove it from history; revoke any exposed key.
 
 Suggested description: AI-assisted requirement analysis, test generation, validation,
 evaluation and Excel traceability for quality engineering workflows.
