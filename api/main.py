@@ -14,11 +14,16 @@ from models.api_models import (RequirementRequest, RunRequest, ScenarioResponse,
                                DocumentUploadResponse, WorkspaceResponse,
                                ApiSpecParseResponse, ApiTestDesignResponse)
 from models.api_testing import ApiHtmlRequest, ApiManualRequest, ApiSpecRequest
+from models.web_testing import WebUITestGenerationRequest, WebUITestPlan
 from models.requirement import RequirementAnalysis
 from services.api_html_parser import fetch_html, parse_html_api_doc
 from services.api_spec_parser import (endpoint_choices, manual_contract,
                                       parse_openapi_spec, select_endpoint)
 from services.api_test_designer import design_api_tests
+from services.web_page_inspector import inspect_public_page
+from services.rendered_page_inspector import inspect_rendered_public_page, rendered_inspection_enabled
+from services.web_test_generator import _validate_observed_locators, generate_web_ui_tests
+from services.web_test_exporter import export_playwright_pytest
 from services.api_test_exporter import (export_api_plan_excel, export_postman_collection,
                                         export_pytest_suite, export_soapui_project)
 from services.document_reader import read_document
@@ -193,6 +198,31 @@ def export_api_tests(export_format: str, plan: ApiTestDesignResponse):
     content = exporter(plan.plan)
     return Response(content=content, media_type=media_type,
                     headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+@app.post("/web-testing/generate", response_model=WebUITestPlan)
+def generate_web_ui_test_plan(request: WebUITestGenerationRequest):
+    try:
+        if request.inspection_mode == "rendered":
+            if not rendered_inspection_enabled():
+                raise HTTPException(503, "Rendered inspection is disabled on this API. Enable TESTGEN_ENABLE_RENDERED_INSPECTION and install Chromium.")
+            snapshot = inspect_rendered_public_page(request.url)
+        else:
+            snapshot = inspect_public_page(request.url)
+        return generate_web_ui_tests(snapshot, request.user_goal)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@app.post("/web-testing/export/playwright")
+def export_web_ui_tests(plan: WebUITestPlan):
+    try:
+        _validate_observed_locators(plan.test_cases, plan.snapshot)
+        content = export_playwright_pytest(plan)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return Response(content=content, media_type="application/zip",
+                    headers={"Content-Disposition": 'attachment; filename="TestGen_Web_UI_Playwright.zip"'})
 
 
 @app.post("/runs", status_code=202)

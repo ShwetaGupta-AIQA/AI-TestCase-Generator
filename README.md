@@ -29,6 +29,8 @@ reduce specific failure modes, but do not guarantee semantically correct output.
 - Four-sheet Excel export: Requirements, Scenarios, Test Cases and Traceability.
 - API testing Phase 1: paste endpoint details, OpenAPI JSON/YAML or HTML/API portal docs,
   select the API to test, and export Excel, Postman, Pytest or SoapUI test assets.
+- Web UI testing: inspect public HTTPS pages using static HTML or opt-in rendered
+    Chromium, draft and review browser tests, and export a local Playwright pytest suite.
 - Completeness, traceability and duplicate metrics, plus golden-dataset evaluation.
 - Streamlit UI and independent FastAPI endpoints with Swagger documentation.
 - Linux dependency installation, container build, and the full regression suite are verified locally.
@@ -37,7 +39,10 @@ reduce specific failure modes, but do not guarantee semantically correct output.
 
 See [System Architecture](docs/architecture.md) for the current runtime paths:
 durable requirement generation, the stateless demo, and deterministic API test
-design and export.
+design and export. See the [Web UI Testing roadmap](docs/web-ui-testing.md) for
+the browser-test generation phases, rendered-inspection setup and current
+limitations. Rendered mode is disabled by default and requires Playwright/Chromium
+in the durable API deployment.
 
 The default UI submits jobs to FastAPI and polls a separate durable worker's results.
 An optional stateless demo UI calls `api.demo:app` for request-based generation

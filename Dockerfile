@@ -2,12 +2,15 @@ FROM python:3.14-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+    STREAMLIT_BROWSER_GATHER_USAGE_STATS=false \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt \
-    && useradd --create-home --uid 10001 appuser
+    && python -m playwright install --with-deps chromium \
+    && useradd --create-home --uid 10001 appuser \
+    && chown -R appuser:appuser /ms-playwright
 
 COPY --chown=appuser:appuser . .
 RUN mkdir -p /app/output/runs && chown -R appuser:appuser /app/output

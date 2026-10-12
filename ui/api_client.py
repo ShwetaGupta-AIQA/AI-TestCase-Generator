@@ -27,7 +27,7 @@ def _request(method, path, timeout=TIMEOUT, **kwargs):
             pass
         raise ValueError(detail) from exc
     except httpx.TimeoutException as exc:
-        raise BackendUnavailable("The API request timed out. Try a shorter requirement; the request is not automatically retried.") from exc
+        raise BackendUnavailable("The API took too long to respond. Check the model provider and API logs, then retry; the request is not automatically retried.") from exc
     except httpx.RequestError as exc:
         raise BackendUnavailable("The TestGen API is unavailable. Check the configured API URL and retry.") from exc
 
@@ -112,3 +112,16 @@ def design_html_api_tests(html_text="", url="", endpoint_key=None, reviewed_endp
 def export_api_tests(plan, export_format):
     return _request("POST", f"/api-testing/export/{export_format}",
                     json={"plan": plan}, timeout=httpx.Timeout(60.0, connect=5.0)).content
+
+
+def generate_web_ui_tests(url, user_goal, inspection_mode="static"):
+    return _request("POST", "/web-testing/generate",
+              json={"url": url, "user_goal": user_goal,
+                  "inspection_mode": inspection_mode},
+              timeout=httpx.Timeout(210.0 if inspection_mode == "rendered" else 150.0,
+                            connect=5.0)).json()
+
+
+def export_web_ui_tests(plan):
+    return _request("POST", "/web-testing/export/playwright", json=plan,
+                    timeout=httpx.Timeout(30.0, connect=5.0)).content

@@ -8,6 +8,18 @@ from services.api_test_designer import design_api_tests
 
 
 class ApiReviewUiTests(unittest.TestCase):
+    def test_web_ui_testing_workspace_renders_phase_one_flow(self):
+        at = AppTest.from_string(
+            "from ui.streamlit_app import web_ui_testing_page\n"
+            "web_ui_testing_page()")
+        at.run()
+        self.assertFalse(at.exception)
+        self.assertTrue(any("Web UI Testing - Phase 1" in item.value for item in at.subheader))
+        self.assertTrue(any("Public page URL" in item.label for item in at.text_input))
+        self.assertTrue(any("Page inspection" in item.label for item in at.radio))
+        self.assertIn("Render JavaScript", at.radio[0].options)
+        self.assertTrue(any("User goal" in item.label for item in at.text_area))
+
     def test_review_filter_and_export_scope(self):
         contract = parse_openapi_spec(OPENAPI_SPEC)
         plan = design_api_tests(contract, contract.endpoints[0]).model_dump()

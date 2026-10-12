@@ -1,7 +1,8 @@
 # TestGen AI System Architecture
 
-TestGen AI has three related runtime paths: queued requirement generation,
-bounded session-only demo generation, and synchronous API test design/export.
+TestGen AI has four related runtime paths: queued requirement generation,
+bounded session-only demo generation, synchronous API test design/export, and
+public-page web UI test drafting.
 
 ```mermaid
 flowchart TB
@@ -38,6 +39,19 @@ flowchart TB
         UI -->|User runs selected assets| Runner[Local test runner]
         Runner --> Target[Mock, local, test or staging API]
     end
+
+    subgraph WebUITests[Web UI test drafting: Phases 1 and 2]
+        UI -->|Public HTTPS URL and user goal| WebAPI[FastAPI web test endpoints]
+        WebAPI -->|Static default / rendered opt-in| Inspector[Bounded page inspector]
+        Inspector -->|Chromium, same-origin requests only| Rendered[Rendered DOM]
+        Rendered --> Inspector
+        Inspector -->|Title, headings and named controls| WebDraft[Structured test draft]
+        LLM --> WebDraft
+        WebDraft --> LocatorCheck[Observed locator and action validation]
+        LocatorCheck --> WebAPI
+        WebAPI -->|Reviewed Playwright pytest ZIP| UI
+        UI -->|User runs locally| BrowserRunner[Local Playwright runner]
+    end
 ```
 
 ## Runtime Paths
@@ -64,6 +78,17 @@ Manual endpoint details, OpenAPI documents and HTML API documentation are parsed
 into an API contract. The designer creates deterministic test plans; this path
 does not call the LLM. Exporters produce files for review and user-directed
 execution. TestGen does not execute those exported tests against a target API.
+
+### Web UI test drafting
+
+Static inspection is the default. Opt-in Phase 2 launches headless Chromium to
+inspect rendered headings and named controls on a public HTTPS page. The browser
+pins the initial hostname to a verified public IPv4 and permits only same-origin
+HTTPS requests, with navigation and request-count limits. Cross-origin assets
+are blocked, so some pages may render incompletely. Browser tests are still
+reviewed and executed by the user; TestGen does not execute generated test suites
+on the server. See the [Web UI Testing roadmap](web-ui-testing.md) for opt-in
+setup and deployment limitations.
 
 ## LLM and Deterministic Responsibilities
 

@@ -1,6 +1,7 @@
 """Launch from the project root: python -m streamlit run ui/streamlit_app.py"""
 from pathlib import Path
 import hashlib
+import json
 import sys
 import logging
 from uuid import uuid4
@@ -18,7 +19,7 @@ from ui.api_client import (BackendUnavailable, download_excel, get_history, get_
                            submit_document, submit_manual, demo_mode, generate_demo, create_workspace,
                            workspace_required, parse_api_spec, design_manual_api_tests,
                            design_spec_api_tests, parse_api_html, design_html_api_tests,
-                           export_api_tests)
+                           export_api_tests, generate_web_ui_tests, export_web_ui_tests)
 from services.demo_limits import MAX_UPLOAD_BYTES, MAX_TEXT_CHARS
 from evaluation.evaluator import evaluate_test_suite
 from models.test_case import TestCase
@@ -426,24 +427,115 @@ def api_testing_page():
         _show_api_plan(st.session_state["api_test_plan"])
 
 
+def web_ui_testing_page():
+    st.subheader("Web UI Testing - Phase 1")
+    st.caption("Inspect a public page, draft browser tests, review them, and export a Playwright suite.")
+    with st.form("web-ui-test-generation"):
+        url = st.text_input("Public page URL", placeholder="https://www.example.com/sign-in")
+        inspection_mode = st.radio("Page inspection", ["Static HTML", "Render JavaScript"], horizontal=True)
+        if inspection_mode == "Static HTML":
+            st.caption("Static HTML only; JavaScript-rendered controls may be missing.")
+        else:
+            st.warning("Rendered mode runs Chromium on the API. Same-origin HTTPS requests only; cross-origin scripts/assets are blocked. The API must have rendered inspection enabled and Chromium installed.")
+        user_goal = st.text_area("User goal", max_chars=1000,
+                                 placeholder="A user can enter an email address and reach the account sign-in flow.")
+        submitted = st.form_submit_button("Inspect page and draft tests", type="primary")
+    if submitted:
+        st.session_state.pop("web_ui_test_plan", None)
+        st.session_state.pop("web_ui_export", None)
+        if not url.strip().startswith("https://"):
+            st.error("Enter a public HTTPS page URL.")
+        elif len(user_goal.strip()) < 5:
+            st.error("Describe the user goal in at least five characters.")
+        else:
+            try:
+                with st.spinner("Inspecting the public page and drafting test cases..."):
+                    mode = "rendered" if inspection_mode == "Render JavaScript" else "static"
+                    st.session_state["web_ui_test_plan"] = generate_web_ui_tests(url.strip(), user_goal.strip(), mode)
+            except (BackendUnavailable, ValueError) as exc:
+                st.error(str(exc))
+
+    plan = st.session_state.get("web_ui_test_plan")
+    if not plan:
+        return
+
+    st.markdown("#### Inspected page")
+    st.write("**Page:**", plan.get("page_title") or "Title not found")
+    st.write("**URL:**", plan["url"])
+    if plan["snapshot"].get("description"):
+        st.caption(plan["snapshot"]["description"])
+    if plan["snapshot"].get("headings"):
+        st.write("**Headings:**", " · ".join(plan["snapshot"]["headings"]))
+    elements = plan["snapshot"].get("elements", [])
+    if elements:
+        st.dataframe(elements, hide_index=True, use_container_width=True)
+    else:
+        st.info("No named interactive controls were found. Review the generated page-level tests carefully.")
+
+    st.markdown("#### Review test drafts")
+    st.caption("Edit the title or objective, and uncheck cases you do not want in the export. Review every action and assertion before running the suite.")
+    plan_fingerprint = hashlib.sha256(json.dumps(plan, sort_keys=True).encode("utf-8")).hexdigest()[:10]
+    reviewed_cases = []
+    for case in plan["test_cases"]:
+        with st.expander(f"{case['test_case_id']} · {case['title']}", expanded=True):
+            include = st.checkbox("Include in Playwright export", value=True,
+                                  key=f"web-include-{plan_fingerprint}-{case['test_case_id']}")
+            title = st.text_input("Test title", value=case["title"],
+                                  key=f"web-title-{plan_fingerprint}-{case['test_case_id']}")
+            objective = st.text_area("Objective", value=case["objective"],
+                                     key=f"web-objective-{plan_fingerprint}-{case['test_case_id']}")
+            st.write("**Type:**", case["test_type"], "· **Priority:**", case["priority"])
+            if case.get("preconditions"):
+                st.write("**Preconditions:**", case["preconditions"])
+            st.write("**Actions:**")
+            st.json(case["actions"])
+            st.write("**Assertions:**")
+            st.json(case["assertions"])
+            if include:
+                reviewed = dict(case)
+                reviewed["title"] = title.strip() or case["title"]
+                reviewed["objective"] = objective.strip() or case["objective"]
+                reviewed_cases.append(reviewed)
+
+    reviewed_plan = dict(plan)
+    reviewed_plan["test_cases"] = reviewed_cases
+    reviewed_fingerprint = hashlib.sha256(json.dumps(reviewed_plan, sort_keys=True).encode("utf-8")).hexdigest()
+    if st.session_state.get("web_ui_export_fingerprint") != reviewed_fingerprint:
+        st.session_state.pop("web_ui_export", None)
+    if st.button("Prepare Playwright suite", type="primary", disabled=not reviewed_cases):
+        try:
+            st.session_state["web_ui_export"] = export_web_ui_tests(reviewed_plan)
+            st.session_state["web_ui_export_fingerprint"] = reviewed_fingerprint
+        except (BackendUnavailable, ValueError) as exc:
+            st.error(str(exc))
+    if st.session_state.get("web_ui_export"):
+        st.download_button("Download Playwright test suite", st.session_state["web_ui_export"],
+                           file_name="TestGen_Web_UI_Playwright.zip", mime="application/zip")
+
+
 def main():
     st.set_page_config(page_title="TestGen AI", page_icon="🧪", layout="wide")
     st.title("🧪 TestGen AI")
     st.subheader("AI-Powered Test Case Generator")
     st.write("Turn a requirement or document into QA scenarios, test cases and a traceable Excel workbook.")
+    workspace_options = ["Requirement Generator", "API Testing - Phase 1"]
+    if not demo_mode():
+        workspace_options.append("Web UI Testing - Phase 1")
     with st.sidebar:
         st.header("About TestGen AI")
-        workspace_mode = st.selectbox("Workspace", ["Requirement Generator", "API Testing - Phase 1"], key="workspace-mode")
+        workspace_mode = st.selectbox("Workspace", workspace_options, key="workspace-mode")
         st.write("Analyze requirements â†’ Generate scenarios â†’ Generate test cases â†’ Validate â†’ Export Excel")
     if workspace_mode == "API Testing - Phase 1":
         api_testing_page()
+        return
+    if workspace_mode == "Web UI Testing - Phase 1":
+        web_ui_testing_page()
         return
     if demo_mode():
         demo_page()
         return
     with st.sidebar:
         st.header("About TestGen AI")
-        workspace_mode = st.selectbox("Workspace", ["Requirement Generator", "API Testing - Phase 1"], key="workspace-mode-durable")
         st.write("Analyze requirements → Generate scenarios → Generate test cases → Validate → Export Excel")
         st.divider()
         st.caption("Document mode processes the first two extracted requirements. Text-based PDFs only; OCR is not included.")
@@ -462,6 +554,9 @@ def main():
 
     if workspace_mode == "API Testing - Phase 1":
         api_testing_page()
+        return
+    if workspace_mode == "Web UI Testing - Phase 1":
+        web_ui_testing_page()
         return
 
     active_run_id = st.query_params.get("run_id")
