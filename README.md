@@ -35,27 +35,9 @@ reduce specific failure modes, but do not guarantee semantically correct output.
 
 ## Architecture
 
-![AI Test Case Generator Architecture](docs/images/architecture.png) 
-```mermaid
-flowchart TD
-    UI[Streamlit UI] --> Input[Manual requirement or document]
-    API[FastAPI] --> Input
-    Input --> Reader[TXT / DOCX / PDF reader]
-    Reader --> Extract[LLM requirement extraction]
-    Extract --> Analyze[LLM requirement analysis]
-    Input -->|Manual text| Analyze
-    Analyze --> BVA[Python boundary analysis]
-    Analyze --> Scenarios[LLM scenario generation]
-    Scenarios --> Cases[LLM test content generation]
-    Cases --> Schema[Pydantic structural validation]
-    Schema --> IDs[Python IDs and parent mappings]
-    IDs --> QA[QA validation]
-    QA --> Metrics[Deterministic evaluation]
-    QA --> Accepted[Accepted cases]
-    Accepted --> Excel[Traceability and Excel export]
-    Metrics --> Results[UI / JSON reports]
-    BVA --> Results
-```
+See [System Architecture](docs/architecture.md) for the current runtime paths:
+durable requirement generation, the stateless demo, and deterministic API test
+design and export.
 
 The default UI submits jobs to FastAPI and polls a separate durable worker's results.
 An optional stateless demo UI calls `api.demo:app` for request-based generation
