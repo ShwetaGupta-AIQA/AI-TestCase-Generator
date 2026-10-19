@@ -6,7 +6,7 @@ public-page web UI test drafting.
 
 ```mermaid
 flowchart TB
-    User[User] --> UI[Streamlit workspace]
+    User[User] --> UI[React workspace or optional Streamlit]
 
     subgraph Durable[Durable requirement generation]
         UI -->|Submit job, poll status, view history, download workbook| API[FastAPI: api.main]
@@ -105,3 +105,14 @@ to saved runs. Local development defaults to trusted mode unless
 `TESTGEN_REQUIRE_WORKSPACE=true` is set. These tokens do not provide user accounts
 or a full identity provider.
 
+
+
+## React frontend boundary
+
+The primary frontend is `frontend/`, built with React, TypeScript and Vite. It combines generation, API test design, browser drafting and history. Local Vite and container Nginx forward same-origin `/api` requests to FastAPI; downloads use fetch with the workspace header rather than unauthenticated links. Nginx also serves direct React routes using SPA fallback.
+
+Both backend apps expose `/capabilities`. The durable app advertises all workspaces; the guest app advertises only generation/upload and labels results as session-only. Rendered inspection follows the server feature flag. Private workspace mode uses a recovery token stored in tab session storage and sent as `X-TestGen-Workspace`; switching workspace clears current drafts. Trusted local mode is unchanged.
+
+The existing backend generation and separate durable worker remain in place. Requirement jobs persist in the database; API/browser editor drafts live in browser memory until exported. Editing source inputs clears stale plans, and editing expectations/selection invalidates review approval. Executable API exports require confirmed status codes in the UI. No React screen executes arbitrary generated code.
+
+Docker Compose starts React by default and keeps Streamlit under the `legacy-ui` profile. Existing external hosting is not automatically migrated. See [React integration](react-ui.md) for configuration, limits and verification.

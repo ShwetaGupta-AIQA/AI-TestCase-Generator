@@ -32,8 +32,36 @@ reduce specific failure modes, but do not guarantee semantically correct output.
 - Web UI testing: inspect public HTTPS pages using static HTML or opt-in rendered
     Chromium, draft and review browser tests, and export a local Playwright pytest suite.
 - Completeness, traceability and duplicate metrics, plus golden-dataset evaluation.
-- Streamlit UI and independent FastAPI endpoints with Swagger documentation.
+- React + TypeScript quality workspace, optional Streamlit UI, and FastAPI endpoints with Swagger documentation.
 - Linux dependency installation, container build, and the full regression suite are verified locally.
+
+## React workspace (new)
+
+The new React interface brings **Generate Tests, API Testing, Web UI Testing, Run History, and Help & Setup** into one workspace. It uses the full FastAPI backend by default. The existing public Streamlit demo has not been replaced automatically.
+
+After installing the Python dependencies below, start the API and generation worker in two separate terminals from the project root:
+
+```powershell
+.venv/Scripts/python.exe -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+```
+
+```powershell
+.venv/Scripts/python.exe -m runs.worker
+```
+
+Start React in a third terminal (Node.js 24):
+
+```powershell
+cd frontend
+npm.cmd ci
+npm.cmd run dev
+```
+
+Open **http://127.0.0.1:5173**. Requirement generation needs the backend's configured AI provider. API contract design is deterministic; exports are reviewed drafts, not executed coverage. The backend advertises its capabilities so a guest-only connection does not show unsupported workflows.
+
+For the full local container setup, use `docker compose up --build`; the React UI is at localhost:5173. The optional old Streamlit UI is enabled with `docker compose --profile legacy-ui up --build` at localhost:8501.
+
+Read the [React setup, workspace recovery and feature guide](docs/react-ui.md). Provider keys stay on the server. Do not put them in frontend environment variables.
 
 ## Architecture
 
@@ -76,7 +104,7 @@ Edit `.env` locally and set `OPENROUTER_API_KEY`. `OPENROUTER_MODEL` defaults to
 `openrouter/free`; availability and provider limits can change. No API key is needed
 for automated tests. Submitted requirement/document text is sent to OpenRouter.
 
-Start the UI:
+Start the optional legacy Streamlit UI:
 
 ```powershell
 .\.venv\Scripts\python.exe -m streamlit run ui/streamlit_app.py

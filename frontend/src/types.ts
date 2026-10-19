@@ -1,0 +1,12 @@
+export type Capabilities={mode:'durable'|'demo';features:{requirements:boolean;documents:boolean;api_testing:boolean;web_testing:boolean;history:boolean;rendered_inspection:boolean};workspace_required:boolean;limits:{upload_bytes:number;requirement_chars:number|null}};
+export type Row=Record<string,unknown>;
+export type GeneratedResult={source_id:string;requirement:string;analysis:Row;scenarios:Row[];test_cases:Row[];rejected_test_cases:Row[];validation_results?:Row[];validation_summary?:Row;boundary_analysis?:unknown;evaluation?:Row};
+export type Report={results:GeneratedResult[];processed_count:number;extracted_count:number;excel_base64?:string};
+export type Run={run_id:string;status:string;stage:string;input_type:string;original_filename?:string;error?:string;created_at:string;updated_at:string;excel_available:boolean;result?:Report};
+export type Endpoint={method:string;path:string;summary:string;[key:string]:unknown};
+export type EndpointChoice={key:string;label:string;method:string;path:string;contract:Endpoint|null};
+export type ParsedContract={title:string;base_url:string;source_text?:string;endpoints:EndpointChoice[]};
+export type ApiCase={test_case_id:string;title:string;test_type:string;priority:string;expected_status:string;expected_result:string;covered_field:string;steps:string[];[key:string]:unknown};
+export type ApiPlan={contract_title:string;base_url:string;endpoint:Endpoint;test_cases:ApiCase[];coverage_summary:Record<string,number>;retrieved_context:string[]};
+export type WebCase={test_case_id:string;title:string;objective:string;test_type:string;priority:string;actions:unknown[];assertions:unknown[];[key:string]:unknown};
+export type WebPlan={url:string;page_title:string;user_goal:string;snapshot:{headings:string[];elements:Row[];description:string;url:string};test_cases:WebCase[]};

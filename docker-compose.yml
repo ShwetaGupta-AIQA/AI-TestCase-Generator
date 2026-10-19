@@ -46,6 +46,7 @@ services:
       disable: true
 
   ui:
+    profiles: ["legacy-ui"]
     build: .
     environment:
       TESTGEN_API_URL: http://api:8000
@@ -54,6 +55,19 @@ services:
         condition: service_healthy
     ports:
       - "127.0.0.1:8501:8501"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:5173:8080"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
 
 volumes:
   postgres-data:

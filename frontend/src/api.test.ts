@@ -1,0 +1,6 @@
+import {afterEach,expect,test,vi} from 'vitest';
+import {request,submitDocument,download} from './api';
+afterEach(()=>vi.unstubAllGlobals());
+test('validation errors are human readable',async()=>{vi.stubGlobal('fetch',vi.fn().mockResolvedValue({ok:false,status:422,json:async()=>({detail:[{msg:'Enter a valid requirement'}]})}));await expect(request('/runs')).rejects.toThrow('Enter a valid requirement');});
+test('upload preserves browser multipart boundary and sends token',async()=>{const fetch=vi.fn().mockResolvedValue({ok:true,json:async()=>({run_id:'1'})});vi.stubGlobal('fetch',fetch);await submitDocument(new File(['hello'],'input.txt'),'request-1','token');const options=fetch.mock.calls[0][1];expect(options.body).toBeInstanceOf(FormData);expect(options.headers['Content-Type']).toBeUndefined();expect(options.headers['X-TestGen-Workspace']).toBe('token');});
+test('workbook downloads use authenticated fetch',async()=>{const fetch=vi.fn().mockResolvedValue({ok:false,status:401,json:async()=>({detail:'Workspace is required'})});vi.stubGlobal('fetch',fetch);await expect(download('/runs/1/download','result.xlsx',undefined,'private-token')).rejects.toThrow('Workspace is required');expect(fetch.mock.calls[0][1].headers['X-TestGen-Workspace']).toBe('private-token');});

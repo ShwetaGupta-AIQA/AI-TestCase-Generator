@@ -1,0 +1,10 @@
+import {useState} from 'react';
+import {AlertCircle,Check,Download,LoaderCircle,Search} from 'lucide-react';
+export const message=(error:unknown)=>error instanceof Error?error.message:'Something went wrong. Please retry.';
+export function Notice({children,kind='info'}:{children:React.ReactNode;kind?:'info'|'error'|'success'}){return <div className={'notice '+kind} role={kind==='error'?'alert':'status'}><AlertCircle size={17}/><div>{children}</div></div>;}
+export function Busy({text='Working…'}:{text?:string}){return <span className="busy"><LoaderCircle size={16} className="spin"/>{text}</span>;}
+export function DownloadButton({label,action,disabled=false}:{label:string;action:()=>Promise<void>|void;disabled?:boolean}){const [busy,setBusy]=useState(false);const [error,setError]=useState('');return <><button className="secondary" disabled={disabled||busy} onClick={async()=>{setBusy(true);setError('');try{await action();}catch(e){setError(message(e));}finally{setBusy(false);}}}>{busy?<Busy text="Preparing…"/>:<><Download size={16}/>{label}</>}</button>{error&&<Notice kind="error">{error}</Notice>}</>;}
+export function Json({value}:{value:unknown}){return <pre className="json">{JSON.stringify(value,null,2)}</pre>;}
+export function SearchField({value,onChange,label='Search results'}:{value:string;onChange:(value:string)=>void;label?:string}){return <label className="search"><Search size={17}/><input aria-label={label} value={value} onChange={e=>onChange(e.target.value)} placeholder={label}/></label>;}
+export function PageHeader({eyebrow,title,description}:{eyebrow:string;title:string;description:string}){return <header className="page-header"><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p>{description}</p></header>;}
+export function Steps({current}:{current:number}){return <div className="steps" aria-label="Generation steps">{['Add requirements','Generate tests','Review & export'].map((name,i)=><div key={name} className={current>=i?'current':''}><span>{current>i?<Check size={13}/>:i+1}</span>{name}{i<2&&<i/>}</div>)}</div>;}

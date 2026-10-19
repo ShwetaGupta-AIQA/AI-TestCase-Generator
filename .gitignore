@@ -36,3 +36,11 @@ TestGen_Output.xlsx
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# React dependencies, build output and local browser-test artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+*.tsbuildinfo
+playwright-report/
+test-results/

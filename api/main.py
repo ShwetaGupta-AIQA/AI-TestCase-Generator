@@ -87,6 +87,12 @@ def health():
     return {"status": "healthy"}
 
 
+@app.get("/capabilities")
+def frontend_capabilities():
+    from services.frontend_capabilities import capabilities
+    return capabilities()
+
+
 @app.post("/workspaces", response_model=WorkspaceResponse, status_code=201)
 def create_workspace():
     """Create a private anonymous workspace for the Streamlit session."""

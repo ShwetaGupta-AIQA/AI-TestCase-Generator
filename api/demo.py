@@ -18,6 +18,12 @@ app = FastAPI(title="TestGen AI Demo API", version="1.0.0",
               description="Bounded generation with session-only results; no saved run history.")
 
 
+@app.get("/capabilities")
+def frontend_capabilities():
+    from services.frontend_capabilities import capabilities
+    return capabilities(demo=True)
+
+
 class DemoRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
     requirement: str = Field(min_length=5, max_length=limits.MAX_TEXT_CHARS)
