@@ -43,6 +43,8 @@ Actual local React screens with fictional inputs. Run History uses synthetic sam
 
 ## Understand the architecture
 
+![Current React workspace architecture](docs/images/architecture.png)
+
 ```mermaid
 flowchart TD
     React[React workspace] --> API[FastAPI backend]
