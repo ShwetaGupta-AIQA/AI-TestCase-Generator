@@ -1,6 +1,6 @@
 # React quality workspace
 
-New here? Follow the [fork and local startup guide](../README.md) first. React is on `feat/react-ui` until merged into `main`. See the [interactive diagrams](diagrams/README.md) for architecture and request flow.
+New here? Follow the [fork and local startup guide](../README.md) first. The React workspace is available on the default `main` branch. See the [interactive diagrams](diagrams/README.md) for architecture and request flow.
 
 The React frontend provides requirement generation, document upload, API test design/review/exports, public-page browser-test drafting, and saved generation runs in one interface. It reuses the existing FastAPI contracts and separate generation worker.
 

@@ -13,7 +13,7 @@ API export behavior is documented in [export verification](api-export-verificati
 
 ## Remaining release checks
 
-- Merge the reviewed `feat/react-ui` changes before making `main` the beginner path; then remove branch-specific cloning instructions from the README.
+- Keep the default `main` branch aligned with the React setup instructions; verify the first-run guide after release changes.
 - Verify React + API + worker from a clean clone. Frontend image builds and mocked browser checks do not establish complete-stack or live-model success.
 
 - Build and run the Docker image; Docker execution has not yet been verified. The Dockerfile uses Python 3.14 to match the

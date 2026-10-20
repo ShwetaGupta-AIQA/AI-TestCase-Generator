@@ -51,15 +51,15 @@ See [architecture details](docs/architecture.md) and [interactive architecture a
 
 ## 1. Fork and clone
 
-The React implementation is on **`feat/react-ui`**. Use that branch until it is merged into `main`.
+The React workspace is available on the default **`main`** branch.
 
 1. Open [this repository](https://github.com/ShwetaGupta-AIQA/AI-TestCase-Generator).
-2. Click **Fork**. Uncheck **Copy the main branch only**, then click **Create fork** so the React branch is included.
+2. Click **Fork**, keep the default `main` branch, then click **Create fork**.
 3. Open PowerShell in a folder where you keep projects.
 4. Replace `YOUR_GITHUB_USERNAME` with your GitHub username:
 
 ```powershell
-git clone --branch feat/react-ui https://github.com/YOUR_GITHUB_USERNAME/AI-TestCase-Generator.git
+git clone https://github.com/YOUR_GITHUB_USERNAME/AI-TestCase-Generator.git
 cd AI-TestCase-Generator
 ```
 
