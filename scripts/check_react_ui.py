@@ -14,7 +14,7 @@ checks=[]
 with sync_playwright() as p:
  browser=p.chromium.launch(headless=True);page=browser.new_page(viewport={'width':1440,'height':1060},device_scale_factor=1)
  errors=[];page.on('pageerror',lambda error:errors.append(str(error)))
- page.goto('http://127.0.0.1:5173');expect(page.get_by_role('heading',name='Better requirements. Better tests.')).to_be_visible();page.screenshot(path=str(OUT/'generate-desktop.png'),full_page=True);checks.append('real full-backend capability discovery')
+ page.goto('http://127.0.0.1:5173');expect(page.get_by_role('heading',name='Generate Tests from Requirements')).to_be_visible();page.screenshot(path=str(OUT/'generate-desktop.png'),full_page=True);checks.append('real full-backend capability discovery')
  page.get_by_role('link',name='API Testing',exact=True).click();page.get_by_label('Base URL',exact=True).fill('https://example.com');page.get_by_label('Required body fields',exact=True).fill('email');page.get_by_role('button',name='Design API tests').click();expect(page.get_by_role('button',name='Excel workbook')).to_be_visible(timeout=15000);page.screenshot(path=str(OUT/'api-desktop.png'),full_page=True)
  expect(page.get_by_role('button',name='Excel workbook')).to_be_disabled();page.get_by_label('I reviewed the selected test cases and their expected outcomes.').check();
  with page.expect_download() as downloaded:page.get_by_role('button',name='Excel workbook').click()
