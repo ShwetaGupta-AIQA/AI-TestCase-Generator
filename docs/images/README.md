@@ -1,5 +1,7 @@
 # React screenshot capture guide
 
+Four current captures are published: [Generate Tests](01-react-workspace.png), [API Testing](03-api-testing.png), [Web UI Testing](04-web-testing.png), and [Run History](05-run-history.png). They show the actual local React interface with fictional inputs. History records are synthetic; API test design uses the local backend. No AI-provider calls were made. Generated-results and Excel screenshots listed below remain future captures.
+
 Capture the React app at http://127.0.0.1:5173 using fictional inputs. Do not use old Streamlit screens as React previews.
 
 | Filename | What to show |

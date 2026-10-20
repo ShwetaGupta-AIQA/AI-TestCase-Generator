@@ -21,6 +21,26 @@ Requirement generation and browser drafting use OpenRouter. API test design does
 
 Use fictional or nonconfidential examples. Requirement/document content and page summaries used for AI drafting are sent to the configured provider. Provider keys stay on the backend.
 
+## React UI screenshots
+
+Actual local React screens with fictional inputs. Run History uses synthetic sample records; API test design uses the local backend. No AI-provider calls were made for these captures.
+
+### Generate Tests
+
+![Generate Tests workspace with a sample requirement](docs/images/01-react-workspace.png)
+
+### API Testing
+
+![API Testing endpoint configuration](docs/images/03-api-testing.png)
+
+### Web UI Testing
+
+![Web UI Testing with a public sample URL and testing goal](docs/images/04-web-testing.png)
+
+### Run History
+
+![Run History displaying synthetic sample generation records](docs/images/05-run-history.png)
+
 ## Understand the architecture
 
 ```mermaid
