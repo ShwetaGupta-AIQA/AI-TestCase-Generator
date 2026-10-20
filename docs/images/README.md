@@ -1,15 +1,16 @@
-# Screenshot capture guide
+# React screenshot capture guide
 
-No screenshots have been fabricated. Capture these from the running application
-using only `sample_documents/login_brd.txt` and synthetic test inputs:
+Capture the React app at http://127.0.0.1:5173 using fictional inputs. Do not use old Streamlit screens as React previews.
 
-1. `01-home.png`: Streamlit input modes and upload control.
-2. `02-upload-brd.png`: synthetic BRD selected.
-3. `03-generated-tests.png`: expanded test case showing steps and expected result.
-4. `04-quality-metrics.png`: actual completeness, traceability and duplicate scores.
-5. `05-excel-traceability.png`: the exported Traceability sheet.
-6. `06-swagger-api.png`: FastAPI `/docs` with the available endpoints.
+| Filename | What to show |
+| --- | --- |
+| `01-react-workspace.png` | Generate Tests, navigation, sample requirement |
+| `02-generated-results.png` | Completed analysis, scenarios, cases, workbook download |
+| `03-api-testing.png` | Sample endpoint, reviewed cases, expected statuses, exports |
+| `04-web-testing.png` | Observed controls, reviewed drafts, Playwright export |
+| `05-run-history.png` | Saved generation jobs and reopening results |
+| `06-excel-traceability.png` | Actual exported Traceability sheet |
 
-Exclude credentials, terminal environment output and private documents. After saving
-real captures, add Markdown image links to the root README. Do not present sample
-or mocked results as measured model performance.
+Use the password-length example or `sample_documents/login_brd.txt`. Prefer a consistent light theme and roughly 1440 x 900 captures with readable text.
+
+Exclude provider keys, recovery tokens, personal paths, and private documents. Label mock-backed results accurately; they do not prove real-provider quality. Add README image links only after real captures exist. See [interactive diagrams](../diagrams/README.md) for architecture exports.

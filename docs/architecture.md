@@ -1,5 +1,7 @@
 # TestGen AI System Architecture
 
+Start with the [beginner setup guide](../README.md). Explore the [interactive architecture and generation sequence diagrams](diagrams/README.md), based on the committed React implementation. Hosting is not required locally.
+
 TestGen AI has four related runtime paths: queued requirement generation,
 bounded session-only demo generation, synchronous API test design/export, and
 public-page web UI test drafting.

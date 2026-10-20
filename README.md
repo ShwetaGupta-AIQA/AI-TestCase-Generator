@@ -1,55 +1,109 @@
 # TestGen AI
 
-AI-assisted requirement analysis and test generation for quality engineering.
-Turn a user story or BRD into structured analysis, functional/negative/boundary
-scenarios, detailed test cases and an Excel traceability matrix.
+An AI-assisted test design workspace for QA engineers, developers, and learners.
+Turn requirements, API contracts, and public web pages into structured, reviewable test designs using a React interface and Python backend.
 
-## Live demo
+**Example:** enter “Password must contain 8–20 characters” to generate requirement analysis, positive/negative/boundary scenarios, detailed cases, quality checks, and an Excel workbook.
 
-[Open TestGen AI](https://testgen-ai-demo.streamlit.app/) · [API documentation](https://ai-test-case-generator-chi.vercel.app/docs) · [API health](https://ai-test-case-generator-chi.vercel.app/health)
+Generated tests need human review. Design counts are not executed coverage: exported suites run separately against your application.
 
-The public demo is session-only: use nonconfidential requirements, keep the page
-open while generation runs, and download the workbook before leaving.
+## What can I do with it?
 
-## Why this project?
+| React page | Your input | What you get |
+| --- | --- | --- |
+| Generate Tests | A requirement or TXT, DOCX, text-based PDF | Analysis, scenarios, cases, validation, metrics, and Excel traceability |
+| API Testing | Manual endpoint, OpenAPI 3.0/3.1 JSON/YAML, or HTML/API documentation | Deterministic test designs, editable expectations, field traceability, Excel/Postman/Pytest/experimental SoapUI exports |
+| Web UI Testing | Public HTTPS URL and testing goal | Observed page controls, AI-assisted test drafts, review, and Playwright pytest ZIP |
+| Run History | Previously submitted requirement-generation jobs | Saved status, results, and workbook downloads |
+| Help & Setup | Backend configuration and optional workspace token | Setup guidance and workspace recovery |
 
-Language models can generate plausible but incomplete, duplicated or unsupported
-tests. TestGen AI separates language understanding from deterministic QA logic:
-models extract meaning and draft content; Python owns identifiers, integer boundary
-calculations, structural validation, traceability and quality metrics. These checks
-reduce specific failure modes, but do not guarantee semantically correct output.
+Requirement generation and browser drafting use OpenRouter. API test design does not require an AI call. Only requirement-generation jobs are saved in history; API/browser drafts remain in tab memory and clear on reload.
 
-## Features
+Use fictional or nonconfidential examples. Requirement/document content and page summaries used for AI drafting are sent to the configured provider. Provider keys stay on the backend.
 
-- Manual requirements and TXT, DOCX (including tables), text-based PDF ingestion.
-- Structured analysis separating confirmed rules, missing information and assumptions.
-- Functional, negative and boundary scenarios and detailed test cases.
-- Per-run deterministic IDs and inclusive integer BVA with a step of one.
-- QA validation, exact duplicate-title detection and rejected-case reporting.
-- Four-sheet Excel export: Requirements, Scenarios, Test Cases and Traceability.
-- API testing Phase 1: paste endpoint details, OpenAPI JSON/YAML or HTML/API portal docs,
-  select the API to test, and export Excel, Postman, Pytest or SoapUI test assets.
-- Web UI testing: inspect public HTTPS pages using static HTML or opt-in rendered
-    Chromium, draft and review browser tests, and export a local Playwright pytest suite.
-- Completeness, traceability and duplicate metrics, plus golden-dataset evaluation.
-- React + TypeScript quality workspace, optional Streamlit UI, and FastAPI endpoints with Swagger documentation.
-- Linux dependency installation, container build, and the full regression suite are verified locally.
+## Understand the architecture
 
-## React workspace (new)
-
-The new React interface brings **Generate Tests, API Testing, Web UI Testing, Run History, and Help & Setup** into one workspace. It uses the full FastAPI backend by default. The existing public Streamlit demo has not been replaced automatically.
-
-After installing the Python dependencies below, start the API and generation worker in two separate terminals from the project root:
-
-```powershell
-.venv/Scripts/python.exe -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+```mermaid
+flowchart TD
+    React[React workspace] --> API[FastAPI backend]
+    API --> DB[(Job queue and saved results)]
+    Worker[Generation worker] -->|Claim job| DB
+    Worker --> Pipeline[Requirement generation and deterministic QA]
+    Pipeline --> AI[OpenRouter]
+    Worker -->|Save report and Excel| DB
+    API --> Contract[Deterministic API test design]
+    API --> Browser[Public-page inspection and browser drafting]
+    Browser --> AI
+    Contract --> Review[Human review and exports]
+    Browser --> Review
 ```
 
+See [architecture details](docs/architecture.md) and [interactive architecture and sequence diagrams](docs/diagrams/README.md). GitHub previews the Mermaid diagram above; download an interactive HTML file and open it in a browser to explore or export it.
+
+## Before you fork
+
+- **Tested environment:** Windows PowerShell, Python 3.14, Node.js 24, and Git.
+- A GitHub account is needed to create your own fork.
+- An OpenRouter API key is needed for AI-powered workflows. Model availability and provider allowances vary.
+- No hosting account or separate database server is required locally. SQLite is created automatically.
+- This is a local QA tool with anonymous workspace isolation available as an option, not a full account/login system.
+- There is no OCR, automatic execution in the React screens, or guarantee that generated tests fully cover business rules. API exports currently assert status codes; review them before execution.
+
+## 1. Fork and clone
+
+The React implementation is on **`feat/react-ui`**. Use that branch until it is merged into `main`.
+
+1. Open [this repository](https://github.com/ShwetaGupta-AIQA/AI-TestCase-Generator).
+2. Click **Fork**. Uncheck **Copy the main branch only**, then click **Create fork** so the React branch is included.
+3. Open PowerShell in a folder where you keep projects.
+4. Replace `YOUR_GITHUB_USERNAME` with your GitHub username:
+
 ```powershell
-.venv/Scripts/python.exe -m runs.worker
+git clone --branch feat/react-ui https://github.com/YOUR_GITHUB_USERNAME/AI-TestCase-Generator.git
+cd AI-TestCase-Generator
 ```
 
-Start React in a third terminal (Node.js 24):
+All commands below start in this project folder unless stated otherwise. Forking gives you your own GitHub copy; cloning downloads it to your computer.
+
+## 2. Install and configure the backend
+
+```powershell
+py -3.14 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+Copy-Item .env.example .env
+notepad .env
+```
+
+Copy the example only on a new setup; do not overwrite an existing `.env`.
+Replace only `OPENROUTER_API_KEY=replace-me` with your own key for AI workflows.
+Keep these local defaults:
+
+```dotenv
+OPENROUTER_MODEL=openrouter/free
+TESTGEN_MODE=durable
+TESTGEN_REQUIRE_WORKSPACE=false
+TESTGEN_ENABLE_RENDERED_INSPECTION=false
+```
+
+Leave `DATABASE_URL` commented out to use SQLite. Never commit `.env`, paste keys into frontend files, or include them in screenshots. `.env` is ignored by Git.
+
+## 3. Start three terminals
+
+Keep all three running. Open each terminal in the project folder; no virtual-environment activation is required with the explicit Python paths below.
+
+**Terminal 1 — FastAPI backend:**
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn api.main:app --host 127.0.0.1 --port 8000
+```
+
+**Terminal 2 — generation worker:**
+
+```powershell
+.\.venv\Scripts\python.exe -m runs.worker
+```
+
+**Terminal 3 — React frontend:**
 
 ```powershell
 cd frontend
@@ -57,223 +111,71 @@ npm.cmd ci
 npm.cmd run dev
 ```
 
-Open **http://127.0.0.1:5173**. Requirement generation needs the backend's configured AI provider. API contract design is deterministic; exports are reviewed drafts, not executed coverage. The backend advertises its capabilities so a guest-only connection does not show unsupported workflows.
+Open **http://127.0.0.1:5173** for the application.
+Backend health: http://127.0.0.1:8000/health. API documentation: http://127.0.0.1:8000/docs.
 
-For the full local container setup, use `docker compose up --build`; the React UI is at localhost:5173. The optional old Streamlit UI is enabled with `docker compose --profile legacy-ui up --build` at localhost:8501.
+React sends `/api` requests through Vite to port 8000. The worker processes queued generation jobs while the API serves status and results. Stop each process with **Ctrl+C**. On subsequent launches, repeat the three startup commands; dependency installation is only needed for setup or dependency changes.
 
-Read the [React setup, workspace recovery and feature guide](docs/react-ui.md). Provider keys stay on the server. Do not put them in frontend environment variables.
+## 4. Try your first requirement
 
-## Architecture
+1. Open **Generate Tests** and enter `Password must contain 8 to 20 characters.`
+2. Submit once and wait for the job to complete.
+3. Review the analysis, scenarios, accepted/rejected cases, quality checks, and traceability.
+4. Download the Excel workbook.
+5. Open **Run History** and reopen your result.
 
-See [System Architecture](docs/architecture.md) for the current runtime paths:
-durable requirement generation, the stateless demo, and deterministic API test
-design and export. See the [Web UI Testing roadmap](docs/web-ui-testing.md) for
-the browser-test generation phases, rendered-inspection setup and current
-limitations. Rendered mode is disabled by default and requires Playwright/Chromium
-in the durable API deployment.
+For document input, try `sample_documents/login_brd.txt`. The document workflow processes the first two extracted requirements; scanned PDFs need OCR first.
 
-The default UI submits jobs to FastAPI and polls a separate durable worker's results.
-An optional stateless demo UI calls `api.demo:app` for request-based generation
-without a database or worker. See [demo setup and limits](docs/stage-1-demo-mode.md).
-Vercel configuration and the remaining cloud checks are documented in
-[Stage 1 cloud setup](docs/stage-1-cloud-setup.md).
-The persistent free-tier Stage 2 deployment is documented in
-[Stage 2 free-tier deployment](docs/stage-2-free-tier.md).
-File upload through FastAPI extracts requirements only. It does not automatically
-run generation or export. Model responses at each AI stage are Pydantic-validated.
+To explore without an AI key, use **API Testing** with a manual endpoint. Review its expected status codes and selected cases before exporting. Executable exports require confirmed 100–599 status codes. Browser drafting requires a public HTTPS page; private/local targets are not supported.
 
-## Technology
+## What should I edit?
 
-Python 3.14 (tested), OpenRouter through the OpenAI-compatible SDK, Pydantic,
-FastAPI/Uvicorn, Streamlit, openpyxl, pypdf and python-docx. Docker packaging uses
-the same Python major/minor version. `requirements.txt` freezes the installed
-environment; `requirements.in` lists direct dependencies for maintenance.
-
-## Local setup
-
-From the project root, using PowerShell:
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-Copy-Item .env.example .env
-```
-
-Copy the example only for a new setup; do not overwrite an existing `.env`.
-Edit `.env` locally and set `OPENROUTER_API_KEY`. `OPENROUTER_MODEL` defaults to
-`openrouter/free`; availability and provider limits can change. No API key is needed
-for automated tests. Submitted requirement/document text is sent to OpenRouter.
-
-Start the optional legacy Streamlit UI:
-
-```powershell
-.\.venv\Scripts\python.exe -m streamlit run ui/streamlit_app.py
-```
-
-Open http://localhost:8501. Upload `sample_documents/login_brd.txt` or enter a
-requirement, click Generate, review QA results and download the workbook. The UI
-processes only the first two extracted requirements. Results persist across reruns;
-changing input clears them. Temporary files are isolated and cleaned up.
-
-Start the API separately:
-
-```powershell
-.\.venv\Scripts\python.exe -m uvicorn api.main:app --reload
-```
-
-Open http://127.0.0.1:8000/docs. This MVP has no authentication; use the default
-loopback binding for local development.
-
-| Endpoint | Behavior |
+| Goal | Edit |
 | --- | --- |
-| GET `/health` | Liveness; no provider request |
-| POST `/analyze-requirement` | Structured analysis |
-| POST `/generate-scenarios` | Analysis and scenarios |
-| POST `/generate-test-cases` | Full pipeline, QA/BVA/evaluation reports |
-| POST `/upload-document` | Extract requirements from multipart `file` |
-| POST `/api-testing/spec/parse` | Read OpenAPI 3.0/3.1 JSON/YAML or a public HTTPS specification URL |
-| POST `/api-testing/html/parse` | Read HTML/API portal documentation and list extracted endpoints |
-| POST `/api-testing/design/manual` | Generate API tests from pasted endpoint details |
-| POST `/api-testing/design/spec` | Generate API tests for a selected OpenAPI endpoint |
-| POST `/api-testing/design/html` | Generate API tests for a selected endpoint from HTML docs |
-| POST `/api-testing/export/{format}` | Export API plan as `excel`, `postman`, `pytest` or `soapui` |
+| Set provider key or model | Root `.env` only |
+| Change React screens and styling | `frontend/src/` |
+| Change backend endpoints | `api/main.py` |
+| Change AI prompts | `prompts/` |
+| Change deterministic checks | `qa_engine/`, `utils/` |
+| Change API test generation | `services/api_test_designer.py` |
+| Use a different local backend port | `frontend/.env.local`; see `frontend/.env.example`, then restart Vite |
 
-Text endpoints accept `{"requirement":"Password must contain 8 to 20 characters"}`.
-Input requires five characters after trimming. Invalid input returns 422; invalid
-uploads 400; uploads over 10 MiB 413; provider or model-output failures 502.
-Completed QA reports return 200 even when some generated cases were rejected.
+For a normal first run, edit only `.env`. Do not edit source code or committed configuration to insert your key.
 
-In Streamlit, choose `API Testing - Phase 1` from the sidebar. Manual mode is for
-pasted API details; spec mode supports OpenAPI 3.0/3.1 JSON/YAML; HTML mode can import
-public API portal pages or pasted documentation text. Generated API coverage is
-deterministic and does not call the LLM.
+## Troubleshooting
 
-The API workspace includes searchable endpoints, guided/JSON contract review,
-editable expectations, strategy presets, case exclusion and field-to-test traceability.
-Boundary generation covers top-level body/query integer limits, string lengths and
-enums. Nested/composed constraints still require review. Swagger 2.0 and external
-references require conversion/bundling before import.
+| Problem | Check |
+| --- | --- |
+| Backend offline | Terminal 1 is running; open `/health` on port 8000 |
+| Job stays queued | Terminal 2 is running from the project folder |
+| AI generation fails | Backend provider key, selected model availability, and provider allowance |
+| `py -3.14` is unavailable | Install Python 3.14 and reopen the terminal |
+| React does not start | Node.js 24, successful `npm.cmd ci`, and port 5173 availability |
+| Port already in use | Stop the other process; changing backend port also requires updating the Vite proxy |
+| Document has no readable text | Use TXT, DOCX, or text-based PDF; OCR is not included |
+| Rendered inspection unavailable | Use static inspection, or follow the optional Chromium setup |
 
-Exports use the selected, reviewed cases. Pytest has been exercised against a local
-mock API. SoapUI 5.10.0 runner checks cover JSON bodies, headers, query/path
-parameters and passing/failing status assertions. The official Postman CLI also
-passed local mock checks for JSON, headers, encoded queries, status assertions and
-skipping unconfirmed cases. Postman and SoapUI desktop imports remain unverified;
-SoapUI remains experimental. Generated execution assertions currently
-check status codes only. Design counts do not establish execution or complete
-coverage. See the [export verification checklist](docs/api-export-verification.md).
+Local history is stored in `output/testgen.db`; generated files use `output/runs/`. They persist across process restarts and are ignored by Git. Default local mode is shared and intended for trusted local use. Keep confidential documents out of public repositories.
 
-## Command-line workflows
+## Optional Docker setup
 
-```powershell
-.\.venv\Scripts\python.exe app.py
-.\.venv\Scripts\python.exe app.py --requirement "Password must contain 8 to 20 characters" --output output/result.json
-.\.venv\Scripts\python.exe app.py --document sample_documents/login_brd.txt --output output/brd.json
-.\.venv\Scripts\python.exe document_pipeline.py --document sample_documents/login_brd.txt --output output/TestGen_Output.xlsx
-```
-
-`app.py --file` reads a UTF-8 file as one requirement. `app.py --document` extracts
-requirements and processes only the first. `document_pipeline.py` processes the
-first two with shared IDs and exports Excel. Default Excel filename is
-`TestGen_Output.xlsx`. Existing output files are overwritten; close them in Excel
-before exporting again. Rejected cases are excluded from Excel and retained in
-pipeline reports. CLI QA failures return exit code 1 after reporting results.
-
-## Testing and evaluation
-
-```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s tests -v
-.\.venv\Scripts\python.exe -m pip check
-.\.venv\Scripts\python.exe test_evaluator.py
-.\.venv\Scripts\python.exe run_evaluation.py --output output/evaluation.json
-```
-
-Regression tests use mocked AI responses and exercise actual document readers,
-Excel creation/reopening, API requests and Streamlit interactions. The duplicate
-demo is offline. The golden runner makes live model requests for three versioned
-examples: password length, login with no limits, and a maximum-only upload size.
-It records expected/actual constraints, model, timestamp, failures and scores.
-Live accuracy has not been measured as part of packaging.
-
-Suite metrics include accepted and rejected schema-valid cases. Completeness checks
-nonblank titles, steps and expected results; traceability checks Python-assigned
-scenario/requirement mappings; duplicates are exact normalized titles. Golden
-boundary-extraction accuracy checks extracted limits, not boundary coverage in tests.
-Three passing examples would mean 3/3 on dataset v1, not general AI accuracy.
-
-## Docker
+With Docker and Compose installed, configure the root `.env` as above, then run:
 
 ```powershell
 docker compose up --build
 ```
 
-Open http://localhost:8501. Compose starts PostgreSQL, FastAPI, one durable worker,
-and Streamlit. Both published ports bind to localhost because run history has no
-user authentication yet. The shared volume stores uploads, result JSON, and Excel
-workbooks under UUID directories.
+Open **http://127.0.0.1:5173**. Compose runs React, FastAPI, the worker, and PostgreSQL. Data uses Docker volumes rather than the local SQLite database. Stop with `docker compose down`; do not add `-v` unless you intend to remove stored volume data.
 
-Treat this release as a trusted single-user or trusted-network deployment. Every API
-client can list and download every saved run. Uploaded documents and generated files
-remain in the database/`output/runs` volume because no retention or delete endpoint is
-implemented yet. Configure backups and manual retention for production data. The
-Compose volume is single-host storage; a multi-host deployment needs shared object
-storage before workers can safely move between hosts.
+The legacy Streamlit interface is optional: `docker compose --profile legacy-ui up --build`, then open port 8501.
 
-For local development without Docker, SQLite is the zero-setup default. Start these
-three processes in separate terminals:
+## Documentation and checks
 
-```powershell
-.\.venv\Scripts\python.exe -m uvicorn api.main:app --reload
-.\.venv\Scripts\python.exe -m runs.worker
-.\.venv\Scripts\python.exe -m streamlit run ui/streamlit_app.py
-```
+- [React features, recovery, and configuration](docs/react-ui.md)
+- [Architecture](docs/architecture.md) and [interactive diagrams](docs/diagrams/README.md)
+- [CLI, tests, evaluation, and legacy Streamlit](docs/developer-guide.md)
+- [Web UI inspection and optional Chromium](docs/web-ui-testing.md)
+- [Export verification and limitations](docs/api-export-verification.md)
+- [Screenshot capture guide](docs/images/README.md)
 
-Set `DATABASE_URL` to a SQLAlchemy PostgreSQL URL for shared deployment, and set
-`TESTGEN_API_URL` if the UI cannot reach `http://127.0.0.1:8000`. A submitted job's
-UUID is stored in the page URL. The worker continues after the browser closes;
-refreshing restores its status, saved JSON results, and Excel download. Network
-retries use an idempotency key and resolve to the same job.
-
-An interrupted worker heartbeat is marked failed after `WORKER_STALE_MINUTES`
-(default 30). It is deliberately not auto-retried because AI calls may already have
-incurred cost; submit a new run explicitly. Redis is deferred until scheduling or
-throughput needs exceed this database-backed queue. Individual AI-stage checkpoints
-are not implemented.
-
-The image excludes `.env`, runs as a non-root user, and uses service-specific health
-checks. Docker build and container execution are **not yet verified**.
-See [release checklist](docs/release-checklist.md) for validation and GitHub steps.
-
-## Project map
-
-| Location | Responsibility |
-| --- | --- |
-| `services/`, `prompts/`, `models/` | Model calls, document/Excel IO, structured contracts |
-| `qa_engine/`, `utils/` | QA validation, BVA, IDs |
-| `evaluation/`, `run_evaluation.py` | Deterministic metrics and golden examples |
-| `api/`, `ui/` | HTTP interface and Streamlit frontend |
-| `tests/` | Automated regression tests |
-| Root `test_*.py` | Component verification and development test scripts; some make live API calls |
-| `sample_documents/` | Synthetic BRD for demonstrations |
-
-## Limits and future work
-
-No OCR, large-document chunking, authentication, test execution,
-semantic duplicate detection, hallucination scoring or automatic boundary-coverage
-validation. IDs reset each run/request. BVA supports inclusive integer ranges;
-one-sided constraints are recorded without inventing the missing bound. Excel
-Covered means an accepted case exists, not that a requirement has passed testing.
-
-Potential follow-ups: authentication and per-user ownership, stage checkpoints,
-object storage, Redis scheduling at higher throughput, a broader golden dataset,
-large-document retrieval, and Jira/OpenAPI integrations.
-
-## Portfolio and release status
-
-[Screenshot guide](docs/images/README.md)
-lists actual captures to add; no screenshots are fabricated or linked before they
-exist. 
-
-The project is published at [GitHub](https://github.com/ShwetaGupta-AIQA/AI-TestCase-Generator).
-Docker build/run, actual UI screenshots and live-model evaluation remain release
-checkpoints; see the [release checklist](docs/release-checklist.md) for current status.
+Backend regression tests use mocked AI responses; the golden evaluation runner makes live provider calls. Test results do not establish general AI accuracy. Full Docker-stack execution and real-provider quality must be verified independently; see the linked guides for recorded verification scope.
